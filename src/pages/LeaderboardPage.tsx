@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Trophy, Medal, TrendingUp, Users, Target, Zap, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
+import { Trophy, Medal, TrendingUp, Users, Target, Zap, ArrowUpDown, ArrowUp, ArrowDown, Lock } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { SemesterSelector } from '@/components/SemesterSelector'
@@ -23,10 +24,50 @@ type SortColumn = 'rank' | 'engagement' | 'attendance' | 'participation' | 'tota
 type SortDirection = 'asc' | 'desc'
 
 export default function LeaderboardPage() {
+  const navigate = useNavigate()
   const { selectedSemester } = useSemester()
   const [timeframe, setTimeframe] = useState<'week' | 'month' | 'semester'>('week')
   const [sortColumn, setSortColumn] = useState<SortColumn>('rank')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
+  const [userRole, setUserRole] = useState<'teacher' | 'student'>('student')
+
+  // Check user role and redirect students
+  useEffect(() => {
+    const userData = localStorage.getItem('user')
+    if (userData) {
+      const user = JSON.parse(userData)
+      setUserRole(user.type || 'student')
+      
+      // Redirect students away from leaderboard
+      if (user.type === 'student') {
+        navigate('/')
+      }
+    }
+  }, [navigate])
+
+  // If student, show access denied message while redirecting
+  if (userRole === 'student') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-white rounded-2xl shadow-xl p-12 max-w-md text-center"
+        >
+          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Lock className="h-10 w-10 text-red-600" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Restricted</h1>
+          <p className="text-gray-600 mb-6">
+            The Leaderboard is only accessible to staff members. You will be redirected to the home page.
+          </p>
+          <Button onClick={() => navigate('/')} className="w-full">
+            Go to Home
+          </Button>
+        </motion.div>
+      </div>
+    )
+  }
 
   // Get semester-specific student data
   const semesterStudents = useMemo(() => {

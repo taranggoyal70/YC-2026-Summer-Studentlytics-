@@ -4,14 +4,18 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { GraduationCap, Menu, X, Users, User, LogOut, UserCircle, Settings } from 'lucide-react'
 import { Button } from './ui/button'
 
-const navItems = [
+const studentNavItems = [
+  { name: 'Home', href: '/' },
+  { name: 'Courses', href: '/courses' },
+  { name: 'Sessions', href: '/sessions' },
+]
+
+const staffNavItems = [
   { name: 'Home', href: '/' },
   { name: 'Dashboard', href: '/dashboard' },
-  { name: 'Opportunities', href: '/explore' },
   { name: 'Attendance', href: '/attendance' },
   { name: 'Leaderboard', href: '/leaderboard' },
   { name: 'Analytics', href: '/analytics' },
-  { name: 'Cohort', href: '/cohort' },
   { name: 'Students', href: '/students' },
   { name: 'Courses', href: '/courses' },
   { name: 'Sessions', href: '/sessions' },
@@ -48,6 +52,9 @@ export default function Navbar() {
     setIsProfileMenuOpen(false)
     navigate('/login')
   }
+
+  // Get navigation items based on user role
+  const navItems = userRole === 'teacher' ? staffNavItems : studentNavItems
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">

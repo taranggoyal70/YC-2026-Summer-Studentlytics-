@@ -1,11 +1,30 @@
 import { motion } from 'framer-motion'
-import { Search, Plus, Eye, Mail, BarChart3, ChevronLeft, ChevronRight, Camera, X, Loader2, CheckCircle, AlertCircle } from 'lucide-react'
+import { Search, Plus, Eye, Mail, BarChart3, ChevronLeft, ChevronRight, Activity } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { getAllStudents, addStudent } from '../services/api'
 import { realStudents } from '../data/transformStudents'
-import { videoService } from '../services/videoService'
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer
+} from 'recharts'
+
+const weeklyActivity = [
+  { day: 'Mon', sessions: 12, students: 285 },
+  { day: 'Tue', sessions: 15, students: 310 },
+  { day: 'Wed', sessions: 13, students: 295 },
+  { day: 'Thu', sessions: 14, students: 305 },
+  { day: 'Fri', sessions: 11, students: 270 },
+  { day: 'Sat', sessions: 6, students: 150 },
+  { day: 'Sun', sessions: 3, students: 80 },
+]
 
 interface StudentRecord {
   record_id: string
@@ -79,22 +98,12 @@ const getStatusColor = (attendance: number) => {
   return 'bg-red-100 text-red-800 border-red-200'
 }
 
-interface EnrollModal {
-  studentId: string
-  studentName: string
-}
-
 export default function StudentsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterClass, setFilterClass] = useState('all')
   const [apiStudents, setApiStudents] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [enrollModal, setEnrollModal] = useState<EnrollModal | null>(null)
-  const [enrolledIds, setEnrolledIds] = useState<Set<string>>(new Set())
-  const [enrollStatus, setEnrollStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle')
-  const [enrollError, setEnrollError] = useState<string>('')
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Fetch students from API on component mount
   useEffect(() => {
@@ -216,31 +225,6 @@ export default function StudentsPage() {
     fetchStudents()
   }, [])
 
-  // Load already-enrolled student IDs from backend
-  useEffect(() => {
-    videoService.getEnrolledStudents().then((students) => {
-      setEnrolledIds(new Set(students.map((s) => s.studentId)))
-    }).catch(() => {/* backend may not be running */})
-  }, [])
-
-  const handleEnrollPhoto = async (file: File) => {
-    if (!enrollModal) return
-    setEnrollStatus('uploading')
-    setEnrollError('')
-    try {
-      await videoService.uploadStudentPhoto(enrollModal.studentId, enrollModal.studentName, file)
-      setEnrolledIds((prev) => new Set([...prev, enrollModal.studentId]))
-      setEnrollStatus('success')
-      setTimeout(() => {
-        setEnrollModal(null)
-        setEnrollStatus('idle')
-      }, 1500)
-    } catch (err) {
-      setEnrollStatus('error')
-      setEnrollError(err instanceof Error ? err.message : 'Upload failed')
-    }
-  }
-
   // Handler for adding a new student
   const handleAddStudent = async () => {
     try {
@@ -316,7 +300,7 @@ export default function StudentsPage() {
           {!loading && apiStudents.length > 0 && (
             <div className="mb-4 flex items-center gap-2 text-sm text-green-600">
               <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
-              <span>Live data • {apiStudents.length} students loaded{enrolledIds.size > 0 ? ` • ${enrolledIds.size} faces enrolled` : ''}</span>
+              <span>Connected to AWS DynamoDB • {apiStudents.length} record(s) loaded</span>
             </div>
           )}
 
@@ -343,51 +327,6 @@ export default function StudentsPage() {
                 <option value="Math 101">Math 101</option>
                 <option value="Physics 202">Physics 202</option>
               </select>
-            </div>
-          </Card>
-
-          {/* Face Enrollment Panel */}
-          <Card className="mb-6 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-base font-semibold flex items-center gap-2">
-                  <Camera className="h-5 w-5 text-primary" />
-                  Face Enrollment for Attendance Tracking
-                </h2>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  Upload a photo for each student so the AI can track attendance from classroom videos.
-                  {enrolledIds.size > 0 && <span className="text-green-600 font-medium"> {enrolledIds.size}/{filteredStudents.length} enrolled.</span>}
-                </p>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-              {filteredStudents.slice(0, 20).map((student: any) => (
-                <button
-                  key={student.student_id}
-                  onClick={() => {
-                    setEnrollModal({ studentId: student.student_id, studentName: student.student_name })
-                    setEnrollStatus('idle')
-                    setEnrollError('')
-                  }}
-                  className={`flex flex-col items-center gap-2 p-3 rounded-lg border-2 transition-all hover:shadow-md text-center
-                    ${enrolledIds.has(student.student_id)
-                      ? 'border-green-400 bg-green-50 hover:bg-green-100'
-                      : 'border-dashed border-gray-300 hover:border-primary hover:bg-primary/5'
-                    }`}
-                >
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm
-                    ${enrolledIds.has(student.student_id) ? 'bg-green-500' : 'bg-gray-400'}`}>
-                    {enrolledIds.has(student.student_id)
-                      ? <CheckCircle className="h-5 w-5" />
-                      : <Camera className="h-5 w-5" />
-                    }
-                  </div>
-                  <span className="text-xs font-medium leading-tight line-clamp-2">{student.student_name}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {enrolledIds.has(student.student_id) ? '✓ Enrolled' : 'Add photo'}
-                  </span>
-                </button>
-              ))}
             </div>
           </Card>
 
@@ -457,19 +396,6 @@ export default function StudentsPage() {
                           <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
                             <BarChart3 className="h-4 w-4" />
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className={`h-8 w-8 p-0 ${enrolledIds.has(student.student_id) ? 'text-green-600' : 'text-muted-foreground'}`}
-                            title={enrolledIds.has(student.student_id) ? 'Face enrolled — click to update' : 'Enroll face for attendance'}
-                            onClick={() => {
-                              setEnrollModal({ studentId: student.student_id, studentName: student.student_name })
-                              setEnrollStatus('idle')
-                              setEnrollError('')
-                            }}
-                          >
-                            <Camera className="h-4 w-4" />
-                          </Button>
                         </div>
                       </td>
                     </motion.tr>
@@ -524,19 +450,6 @@ export default function StudentsPage() {
                       <Mail className="h-4 w-4 mr-1" />
                       Message
                     </Button>
-                    <Button
-                      size="sm"
-                      variant={enrolledIds.has(student.student_id) ? 'default' : 'outline'}
-                      className={`flex-1 ${enrolledIds.has(student.student_id) ? 'bg-green-600 hover:bg-green-700' : ''}`}
-                      onClick={() => {
-                        setEnrollModal({ studentId: student.student_id, studentName: student.student_name })
-                        setEnrollStatus('idle')
-                        setEnrollError('')
-                      }}
-                    >
-                      <Camera className="h-4 w-4 mr-1" />
-                      {enrolledIds.has(student.student_id) ? 'Update' : 'Enroll'}
-                    </Button>
                   </div>
                 </Card>
               </motion.div>
@@ -559,94 +472,31 @@ export default function StudentsPage() {
             </div>
           </div>
 
+          {/* Weekly Activity */}
+          <Card className="mt-8">
+            <div className="p-6 border-b">
+              <div className="flex items-center gap-2">
+                <Activity className="h-5 w-5" />
+                <h2 className="text-lg font-semibold">Weekly Activity</h2>
+              </div>
+              <p className="text-sm text-muted-foreground mt-1">Sessions and student participation by day</p>
+            </div>
+            <div className="p-6">
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={weeklyActivity}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="day" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="sessions" fill="#8b5cf6" name="Sessions" />
+                  <Bar dataKey="students" fill="#10b981" name="Students" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </Card>
         </motion.div>
       </div>
-
-      {/* Face Enrollment Modal */}
-      {enrollModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-background rounded-xl shadow-2xl p-6 w-full max-w-md"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-lg font-bold">Enroll Face</h2>
-                <p className="text-sm text-muted-foreground">{enrollModal.studentName} ({enrollModal.studentId})</p>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0"
-                onClick={() => { setEnrollModal(null); setEnrollStatus('idle') }}
-                disabled={enrollStatus === 'uploading'}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-
-            {enrollStatus === 'success' ? (
-              <div className="flex flex-col items-center gap-3 py-6">
-                <CheckCircle className="h-12 w-12 text-green-500" />
-                <p className="font-semibold text-green-700">Face enrolled successfully!</p>
-                <p className="text-sm text-muted-foreground">This student will be tracked in future video sessions.</p>
-              </div>
-            ) : (
-              <>
-                <div
-                  className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:bg-muted/30 transition-colors mb-4"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Camera className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
-                  <p className="font-medium">Click to upload a photo</p>
-                  <p className="text-sm text-muted-foreground mt-1">Use a clear, frontal face photo (JPG, PNG)</p>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0]
-                      if (file) handleEnrollPhoto(file)
-                    }}
-                  />
-                </div>
-
-                {enrollStatus === 'uploading' && (
-                  <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg mb-4">
-                    <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
-                    <p className="text-sm text-blue-700">Detecting and encoding face...</p>
-                  </div>
-                )}
-
-                {enrollStatus === 'error' && (
-                  <div className="flex items-center gap-3 p-3 bg-red-50 rounded-lg mb-4">
-                    <AlertCircle className="h-5 w-5 text-red-600" />
-                    <p className="text-sm text-red-700">{enrollError}</p>
-                  </div>
-                )}
-
-                {enrolledIds.has(enrollModal.studentId) && enrollStatus === 'idle' && (
-                  <p className="text-sm text-green-600 mb-4">✓ Already enrolled — uploading a new photo will add to their profile.</p>
-                )}
-
-                <Button
-                  className="w-full"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={enrollStatus === 'uploading'}
-                >
-                  {enrollStatus === 'uploading' ? (
-                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing...</>
-                  ) : (
-                    <><Camera className="h-4 w-4 mr-2" /> Choose Photo</>
-                  )}
-                </Button>
-              </>
-            )}
-          </motion.div>
-        </div>
-      )}
     </div>
   )
 }

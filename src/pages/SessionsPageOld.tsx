@@ -1,23 +1,33 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Calendar, Clock, Video, Upload, X, CheckCircle, Loader2, Users, Brain, AlertCircle, ClipboardList, CalendarPlus, ChevronDown } from 'lucide-react'
+import { Calendar, Clock, Video, Upload, X, CheckCircle, Loader2, Users, Brain, AlertCircle, ClipboardList } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { videoService, VideoUploadProgress, VideoAnalysisResult } from '../services/videoService'
-import { addToCalendar } from '../utils/calendarUtils'
-import { realStudents } from '../data/transformStudents'
 
-const quickActions = [
-  { title: 'Upload Recording', description: 'Process a new class video', icon: Upload, action: 'upload' },
-  { title: 'View Analytics', description: 'Check attendance trends', icon: Brain, action: 'analytics' },
-  { title: 'Manage Students', description: 'Update student roster', icon: Users, action: 'students' },
-]
-
-const recentActivities = [
-  { event: 'Video Processed', detail: 'Data Science Workshop - 28 students detected', time: '2 hours ago' },
-  { event: 'Session Created', detail: 'Web Development Q&A scheduled', time: '5 hours ago' },
-  { event: 'Recording Uploaded', detail: 'ML Study Group video uploaded', time: '1 day ago' },
+const sessions = [
+  {
+    title: 'Data Science Workshop',
+    date: 'Oct 28, 2025',
+    time: '2:00 PM - 4:00 PM',
+    type: 'Virtual',
+    instructor: 'Dr. Sarah Johnson',
+  },
+  {
+    title: 'Web Development Q&A',
+    date: 'Oct 30, 2025',
+    time: '10:00 AM - 11:30 AM',
+    type: 'Virtual',
+    instructor: 'Prof. Michael Chen',
+  },
+  {
+    title: 'ML Study Group',
+    date: 'Nov 2, 2025',
+    time: '3:00 PM - 5:00 PM',
+    type: 'In-Person',
+    instructor: 'Dr. Emily Rodriguez',
+  },
 ]
 
 export default function SessionsPage() {
@@ -34,34 +44,9 @@ export default function SessionsPage() {
   const [processedVideos, setProcessedVideos] = useState<VideoAnalysisResult[]>([])
   const [expandedVideo, setExpandedVideo] = useState<string | null>(null)
   const [userRole, setUserRole] = useState<'teacher' | 'student'>('student')
-  const [calendarDropdownOpen, setCalendarDropdownOpen] = useState<number | null>(null)
-
-  // Generate sessions from real student data
-  const sessions = useMemo(() => {
-    const majors = [...new Set(realStudents.map(s => s.major))].slice(0, 3)
-    const dates = ['Oct 28, 2025', 'Oct 30, 2025', 'Nov 2, 2025']
-    const times = ['2:00 PM - 4:00 PM', '10:00 AM - 11:30 AM', '3:00 PM - 5:00 PM']
-    const types = ['Virtual', 'Virtual', 'In-Person']
-    
-    return majors.map((major, index) => {
-      const studentsInMajor = realStudents.filter(s => s.major === major)
-      const enrolled = studentsInMajor.length
-      const rsvps = Math.floor(enrolled * 0.85)
-      
-      return {
-        id: index + 1,
-        title: `${major} Workshop`,
-        date: dates[index],
-        time: times[index],
-        type: types[index] as 'Virtual' | 'In-Person',
-        instructor: 'HighView Staff',
-        enrolled,
-        rsvps,
-      }
-    })
-  }, [])
 
   useEffect(() => {
+    // Get user role from localStorage
     const userData = localStorage.getItem('user')
     if (userData) {
       const user = JSON.parse(userData)
@@ -141,261 +126,87 @@ export default function SessionsPage() {
       >
         <h1 className="text-4xl font-bold mb-4">Sessions</h1>
         <p className="text-xl text-muted-foreground mb-12">
-          {userRole === 'student' ? 'Upcoming learning sessions and workshops' : 'Manage sessions and track attendance'}
+          Upcoming learning sessions and workshops
         </p>
 
-        {/* STUDENT VIEW - Live Sessions Table */}
-        {userRole === 'student' && (
-          <div className="mb-12">
-            <h2 className="text-2xl font-bold mb-6">Live Sessions</h2>
-            <div className="space-y-6">
-              {sessions.map((session, index) => (
-                <motion.div
-                  key={session.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.5, delay: index * 0.1 }}
-                >
-                  <Card className="hover:shadow-lg transition-shadow">
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <CardTitle className="text-xl mb-2">{session.title}</CardTitle>
-                          <CardDescription>Instructor: {session.instructor}</CardDescription>
-                        </div>
-                        <span className="px-3 py-1 text-xs font-medium rounded-full bg-primary/10 text-primary">
-                          {session.type}
-                        </span>
+        {/* Upcoming Sessions */}
+        <div className="space-y-6 mb-12">
+          {sessions.map((session, index) => (
+            <motion.div
+              key={session.title}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5, delay: index * 0.1 }}
+            >
+              <Card className="hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <CardTitle className="text-xl mb-2">{session.title}</CardTitle>
+                      <CardDescription>Instructor: {session.instructor}</CardDescription>
+                    </div>
+                    <span className="px-3 py-1 text-xs font-medium rounded-full bg-primary/10 text-primary">
+                      {session.type}
+                    </span>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap items-center gap-6 mb-4">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Calendar className="h-4 w-4" />
+                      <span>{session.date}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Clock className="h-4 w-4" />
+                      <span>{session.time}</span>
+                    </div>
+                    {session.type === 'Virtual' && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Video className="h-4 w-4" />
+                        <span>Online Session</span>
                       </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex flex-wrap items-center gap-6 mb-4">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Calendar className="h-4 w-4" />
-                          <span>{session.date}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Clock className="h-4 w-4" />
-                          <span>{session.time}</span>
-                        </div>
-                        {session.type === 'Virtual' && (
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Video className="h-4 w-4" />
-                            <span>Online Session</span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex gap-2">
-                        <Button size="sm" className="flex items-center gap-2">
-                          <Video className="h-4 w-4" />
-                          Join Session
+                    )}
+                  </div>
+                  <div className="flex gap-3">
+                    {userRole === 'teacher' ? (
+                      <>
+                        <Button 
+                          size="sm"
+                          onClick={() => navigate(`/sessions/${index + 1}/attendance`)}
+                          className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
+                        >
+                          <ClipboardList className="h-4 w-4" />
+                          Manage RSVPs
                         </Button>
-                        
-                        {/* Add to Calendar Dropdown */}
-                        <div className="relative">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setCalendarDropdownOpen(calendarDropdownOpen === session.id ? null : session.id)}
-                            className="flex items-center gap-2"
-                          >
-                            <CalendarPlus className="h-4 w-4" />
-                            Add to Calendar
-                            <ChevronDown className="h-3 w-3" />
-                          </Button>
-                          
-                          {calendarDropdownOpen === session.id && (
-                            <>
-                              {/* Backdrop to close dropdown */}
-                              <div 
-                                className="fixed inset-0 z-10" 
-                                onClick={() => setCalendarDropdownOpen(null)}
-                              />
-                              
-                              {/* Dropdown Menu */}
-                              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
-                                <button
-                                  onClick={() => {
-                                    addToCalendar({
-                                      title: session.title,
-                                      description: `Join us for ${session.title}`,
-                                      location: session.type === 'Virtual' ? 'Online (Link will be provided)' : 'Campus',
-                                      startDate: session.date,
-                                      startTime: session.time.split(' - ')[0],
-                                      endTime: session.time.split(' - ')[1],
-                                      instructor: session.instructor,
-                                    }, 'google')
-                                    setCalendarDropdownOpen(null)
-                                  }}
-                                  className="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2 text-sm"
-                                >
-                                  <Calendar className="h-4 w-4" />
-                                  Google Calendar
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    addToCalendar({
-                                      title: session.title,
-                                      description: `Join us for ${session.title}`,
-                                      location: session.type === 'Virtual' ? 'Online (Link will be provided)' : 'Campus',
-                                      startDate: session.date,
-                                      startTime: session.time.split(' - ')[0],
-                                      endTime: session.time.split(' - ')[1],
-                                      instructor: session.instructor,
-                                    }, 'ics')
-                                    setCalendarDropdownOpen(null)
-                                  }}
-                                  className="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2 text-sm"
-                                >
-                                  <CalendarPlus className="h-4 w-4" />
-                                  Download ICS
-                                </button>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* STAFF VIEW - Manage RSVPs Table */}
-        {userRole === 'teacher' && (
-          <>
-            {/* Quick Actions - Above Recent Activities */}
-            <div className="mb-12">
-              <h2 className="text-2xl font-bold mb-6">Quick Actions</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {quickActions.map((action, index) => (
-                  <motion.div
-                    key={action.title}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                  >
-                    <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => {
-                      if (action.action === 'analytics') navigate('/analytics')
-                      else if (action.action === 'students') navigate('/students')
-                    }}>
-                      <CardContent className="pt-6">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                            <action.icon className="h-6 w-6 text-primary" />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold">{action.title}</h3>
-                            <p className="text-sm text-muted-foreground">{action.description}</p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-
-            {/* Manage RSVPs Table */}
-            <div className="mb-12">
-              <h2 className="text-2xl font-bold mb-6">Manage Sessions</h2>
-              <div className="space-y-6">
-                {sessions.map((session, index) => (
-                  <motion.div
-                    key={session.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.5, delay: index * 0.1 }}
-                  >
-                    <Card className="hover:shadow-lg transition-shadow">
-                      <CardHeader>
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <CardTitle className="text-xl mb-2">{session.title}</CardTitle>
-                            <CardDescription>Instructor: {session.instructor}</CardDescription>
-                          </div>
-                          <div className="flex flex-col items-end gap-2">
-                            <span className="px-3 py-1 text-xs font-medium rounded-full bg-primary/10 text-primary">
-                              {session.type}
-                            </span>
-                            <span className="text-sm text-muted-foreground">
-                              {session.rsvps}/{session.enrolled} RSVPs
-                            </span>
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex flex-wrap items-center gap-6 mb-4">
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Calendar className="h-4 w-4" />
-                            <span>{session.date}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Clock className="h-4 w-4" />
-                            <span>{session.time}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Users className="h-4 w-4" />
-                            <span>{session.enrolled} enrolled</span>
-                          </div>
-                        </div>
-                        <div className="flex gap-3">
-                          <Button 
-                            size="sm"
-                            onClick={() => navigate(`/sessions/${session.id}/attendance`)}
-                            className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
-                          >
-                            <ClipboardList className="h-4 w-4" />
-                            Manage RSVPs
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedSession(session.title)
-                              setResult(null)
-                              setUploadedFile(null)
-                              setUploadModalOpen(true)
-                            }}
-                            className="flex items-center gap-2"
-                          >
-                            <Upload className="h-4 w-4" />
-                            Upload Recording
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-
-            {/* Recent Activities */}
-            <div className="mb-12">
-              <h2 className="text-2xl font-bold mb-6">Recent Activities</h2>
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="space-y-4">
-                    {recentActivities.map((activity, index) => (
-                      <div key={index} className="flex items-start gap-4 pb-4 border-b last:border-0 last:pb-0">
-                        <div className="w-2 h-2 rounded-full bg-primary mt-2" />
-                        <div className="flex-1">
-                          <p className="font-medium">{activity.event}</p>
-                          <p className="text-sm text-muted-foreground">{activity.detail}</p>
-                        </div>
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">{activity.time}</span>
-                      </div>
-                    ))}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedSession(session.title)
+                            setResult(null)
+                            setUploadedFile(null)
+                            setUploadModalOpen(true)
+                          }}
+                          className="flex items-center gap-2"
+                        >
+                          <Upload className="h-4 w-4" />
+                          Upload Recording
+                        </Button>
+                      </>
+                    ) : (
+                      <Button size="sm" className="flex items-center gap-2">
+                        <Video className="h-4 w-4" />
+                        Join Session
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
-            </div>
-          </>
-        )}
+            </motion.div>
+          ))}
+        </div>
 
-        {/* Processed Recordings - Shown to both */}
+        {/* Processed Recordings */}
         {processedVideos.length > 0 && (
           <div>
             <h2 className="text-2xl font-bold mb-6">Processed Recordings</h2>
@@ -475,7 +286,7 @@ export default function SessionsPage() {
         )}
       </motion.div>
 
-      {/* Upload Modal - Same as before */}
+      {/* Upload Modal */}
       {uploadModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <motion.div
@@ -494,6 +305,7 @@ export default function SessionsPage() {
             <h2 className="text-2xl font-bold mb-1">Upload Class Recording</h2>
             <p className="text-sm text-muted-foreground mb-6">{selectedSession}</p>
 
+            {/* Result View */}
             {result ? (
               <div className="space-y-4">
                 <div className="flex items-center gap-3 p-4 bg-green-50 rounded-lg">
@@ -557,6 +369,7 @@ export default function SessionsPage() {
               </div>
             ) : (
               <>
+                {/* Drag and Drop Area */}
                 <div
                   onDragEnter={handleDrag}
                   onDragLeave={handleDrag}
@@ -590,6 +403,7 @@ export default function SessionsPage() {
                   )}
                 </div>
 
+                {/* Upload Progress */}
                 {uploadProgress && (
                   <div className="mt-4">
                     <div className="flex justify-between text-sm mb-1">
@@ -605,6 +419,7 @@ export default function SessionsPage() {
                   </div>
                 )}
 
+                {/* Processing Status */}
                 {processing && (
                   <div className="mt-4 p-4 bg-blue-50 rounded-lg flex items-center gap-3">
                     <Loader2 className="h-5 w-5 animate-spin text-blue-600 shrink-0" />

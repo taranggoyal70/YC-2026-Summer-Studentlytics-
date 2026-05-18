@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { GraduationCap, Mail, Lock, Eye, EyeOff, Users, User } from 'lucide-react'
+import { GraduationCap, Mail, Lock, Eye, EyeOff, Users, User, Loader2 } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { Link, useNavigate } from 'react-router-dom'
+import { authService } from '../services/authService'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -17,19 +18,39 @@ export default function LoginPage() {
     rememberMe: false,
   })
   const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Store user info
-    localStorage.setItem('user', JSON.stringify({
-      email: formData.email,
-      name: formData.fullName,
-      type: formData.role,
-    }))
-    localStorage.setItem('isAuthenticated', 'true')
-    
-    // Redirect to home page after successful login
-    navigate('/')
+    setError(null)
+    setLoading(true)
+
+    try {
+      if (isLogin) {
+        // Login
+        await authService.login({
+          email: formData.email,
+          password: formData.password,
+          role: formData.role,
+        })
+      } else {
+        // Signup
+        await authService.signup({
+          email: formData.email,
+          password: formData.password,
+          fullName: formData.fullName,
+          role: formData.role,
+          institution: formData.institution,
+        })
+      }
+      
+      // Redirect to home page after successful login/signup
+      window.location.href = '/'
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Authentication failed')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -192,8 +213,15 @@ export default function LoginPage() {
               </div>
             )}
 
-            <Button type="submit" className="w-full py-6 text-lg">
-              {isLogin ? 'Sign In' : 'Create Account'}
+            <Button type="submit" className="w-full py-6 text-lg" disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                  {isLogin ? 'Signing in...' : 'Creating account...'}
+                </>
+              ) : (
+                isLogin ? 'Sign In' : 'Create Account'
+              )}
             </Button>
 
             <div className="relative my-6">

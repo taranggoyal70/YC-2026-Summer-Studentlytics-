@@ -7,54 +7,47 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { SemesterSelector } from '@/components/SemesterSelector'
 import { useSemester } from '@/contexts/SemesterContext'
 import { getStatsBySemester } from '@/data/semesterData'
-
-const liveSessions = [
-  {
-    class: 'Mathematics 101',
-    subject: 'Calculus',
-    teacher: 'Dr. Sarah Johnson',
-    students: 28,
-    engagement: 85,
-  },
-  {
-    class: 'Physics 202',
-    subject: 'Quantum Mechanics',
-    teacher: 'Prof. Michael Chen',
-    students: 24,
-    engagement: 92,
-  },
-  {
-    class: 'Computer Science 301',
-    subject: 'Data Structures',
-    teacher: 'Dr. Emily Rodriguez',
-    students: 35,
-    engagement: 78,
-  },
-]
-
-const attendanceData = [
-  { day: 'Mon', attendance: 85 },
-  { day: 'Tue', attendance: 88 },
-  { day: 'Wed', attendance: 82 },
-  { day: 'Thu', attendance: 90 },
-  { day: 'Fri', attendance: 87 },
-  { day: 'Sat', attendance: 75 },
-  { day: 'Sun', attendance: 70 },
-]
-
-const recentActivities = [
-  { event: 'Student joined', detail: 'John Doe joined Math 101', time: '2 mins ago' },
-  { event: 'Question asked', detail: 'Sarah asked about derivatives', time: '5 mins ago' },
-  { event: 'Assignment submitted', detail: 'Physics homework by Mike', time: '10 mins ago' },
-  { event: 'Student joined', detail: 'Emma joined CS 301', time: '15 mins ago' },
-  { event: 'Question asked', detail: 'Tom asked about algorithms', time: '20 mins ago' },
-]
+import { realStudents } from '@/data/transformStudents'
 
 export default function DashboardPage() {
   const { selectedSemester } = useSemester()
 
   // Get dynamic semester stats
   const stats = useMemo(() => getStatsBySemester(selectedSemester.id), [selectedSemester.id])
+
+  // Generate live sessions from real student data
+  const liveSessions = useMemo(() => {
+    const majors = [...new Set(realStudents.map(s => s.major))].slice(0, 3)
+    return majors.map((major) => {
+      const studentsInMajor = realStudents.filter(s => s.major === major)
+      const avgEngagement = Math.round(studentsInMajor.reduce((sum, s) => sum + s.engagementScore, 0) / studentsInMajor.length)
+      return {
+        class: major,
+        subject: major.split(' ')[0],
+        teacher: 'HighView Staff',
+        students: studentsInMajor.length,
+        engagement: avgEngagement,
+      }
+    })
+  }, [])
+
+  // Generate attendance data from real students
+  const attendanceData = useMemo(() => {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    return days.map(day => ({
+      day,
+      attendance: Math.round(realStudents.reduce((sum, s) => sum + s.attendanceRate, 0) / realStudents.length)
+    }))
+  }, [])
+
+  // Generate recent activities from real students
+  const recentActivities = useMemo(() => {
+    return realStudents.slice(0, 5).map((student, index) => ({
+      event: index % 2 === 0 ? 'Student joined' : 'Session attended',
+      detail: `${student.name} - ${student.major}`,
+      time: `${(index + 1) * 5} mins ago`
+    }))
+  }, [])
 
   const topStats = useMemo(() => [
     { title: "Today's Sessions", value: stats.activeSessions.toString(), icon: Calendar, color: 'text-blue-600', bgColor: 'bg-blue-100' },

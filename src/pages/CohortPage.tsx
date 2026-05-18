@@ -272,7 +272,10 @@ export default function CohortPage() {
     return matchSearch && matchYear && matchStatus
   })
 
-  const toggleStudent = (id: string) => setSelectedId(prev => prev === id ? null : id)
+  const toggleStudent = (id: string) => {
+    console.log('Toggling student:', id, 'Current selected:', selectedId)
+    setSelectedId(prev => prev === id ? null : id)
+  }
 
   return (
     <div className="min-h-screen bg-background p-6">

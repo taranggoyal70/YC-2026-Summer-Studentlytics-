@@ -19,12 +19,22 @@ import threading
 
 import cv2
 import numpy as np
-import face_recognition
-from faster_whisper import WhisperModel
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import aiofiles
+
+# Import auth router
+from auth import router as auth_router
+
+# Optional face recognition imports
+try:
+    import face_recognition
+    from faster_whisper import WhisperModel
+    FACE_RECOGNITION_AVAILABLE = True
+except ImportError:
+    FACE_RECOGNITION_AVAILABLE = False
+    logger.warning("Face recognition not available. Install face_recognition_models to enable.")
 
 # ── Setup ──────────────────────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO)
@@ -47,6 +57,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include authentication routes
+app.include_router(auth_router, prefix="/api/auth", tags=["authentication"])
 
 # ── In-memory state ────────────────────────────────────────────────────────────
 # { video_id: { status, progress, result, error } }

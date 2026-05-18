@@ -1,32 +1,49 @@
+import { useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { BookOpen, Clock, Users } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
-
-const courses = [
-  {
-    title: 'AI Foundation',
-    description: 'An introductory AI course designed for college freshmen. Covers core concepts, tools, and real-world applications of artificial intelligence.',
-    audience: 'Freshmen',
-    students: 40,
-    duration: 'TBD',
-  },
-  {
-    title: 'AI 201',
-    description: 'A sophomore-level course building on AI fundamentals. Explores intermediate AI concepts, data analysis, and hands-on projects.',
-    audience: 'Sophomores',
-    students: 35,
-    duration: 'TBD',
-  },
-  {
-    title: 'AI for Job Search',
-    description: 'A practical course for upperclassmen on leveraging AI tools for career development, job searching, networking, and professional growth.',
-    audience: 'Sophomores, Juniors & Seniors',
-    students: 50,
-    duration: 'TBD',
-  },
-]
+import { realStudents } from '../data/transformStudents'
 
 export default function CoursesPage() {
+  // Generate courses from real student cohorts
+  const courses = useMemo(() => {
+    const cohorts = [...new Set(realStudents.map(s => s.cohort))]
+    
+    const courseDescriptions: Record<string, { description: string; audience: string; duration: string }> = {
+      'Fall 2024': {
+        description: 'An introductory AI course designed for college freshmen. Covers core concepts, tools, and real-world applications of artificial intelligence.',
+        audience: 'Freshmen',
+        duration: '12 weeks',
+      },
+      'Spring 2025': {
+        description: 'A sophomore-level course building on AI fundamentals. Explores intermediate AI concepts, data analysis, and hands-on projects.',
+        audience: 'Sophomores',
+        duration: '12 weeks',
+      },
+      'Summer 2025': {
+        description: 'A practical course for upperclassmen on leveraging AI tools for career development, job searching, networking, and professional growth.',
+        audience: 'Sophomores, Juniors & Seniors',
+        duration: '8 weeks',
+      },
+    }
+    
+    return cohorts.map(cohort => {
+      const studentsInCohort = realStudents.filter(s => s.cohort === cohort)
+      const courseInfo = courseDescriptions[cohort] || {
+        description: `Advanced course for ${cohort} cohort students.`,
+        audience: 'All levels',
+        duration: '12 weeks',
+      }
+      
+      return {
+        title: cohort,
+        description: courseInfo.description,
+        audience: courseInfo.audience,
+        students: studentsInCohort.length,
+        duration: courseInfo.duration,
+      }
+    })
+  }, [])
   return (
     <div className="container mx-auto px-4 py-12">
       <motion.div

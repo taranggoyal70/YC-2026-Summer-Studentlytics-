@@ -14,7 +14,7 @@ interface AttendanceRecord {
   studentId: string
   checkIn: string
   checkOut: string | null
-  status: 'present' | 'absent' | 'late'
+  status: 'present' | 'absent'
   duration: string
   sessionName: string
   date: string
@@ -23,7 +23,7 @@ interface AttendanceRecord {
 export default function AttendancePage() {
   const { selectedSemester } = useSemester()
   const [searchTerm, setSearchTerm] = useState('')
-  const [filterStatus, setFilterStatus] = useState<'all' | 'present' | 'absent' | 'late'>('all')
+  const [filterStatus, setFilterStatus] = useState<'all' | 'present' | 'absent'>('all')
 
   // Get semester-specific attendance data
   const semesterAttendance = useMemo(() => {
@@ -34,18 +34,16 @@ export default function AttendancePage() {
   const attendanceStats = useMemo(() => {
     const totalStudents = semesterAttendance.length
     const presentCount = semesterAttendance.filter(r => r.status === 'present').length
-    const lateCount = semesterAttendance.filter(r => r.status === 'late').length
     const absentCount = semesterAttendance.filter(r => r.status === 'absent').length
     
-    // Calculate attendance rate: (present + late) / total * 100
+    // Calculate attendance rate: present / total * 100
     const attendanceRate = totalStudents > 0 
-      ? Math.round(((presentCount + lateCount) / totalStudents) * 100)
+      ? Math.round((presentCount / totalStudents) * 100)
       : 0
     
     return [
       { label: 'Total Students', value: totalStudents.toString(), icon: Users, color: 'text-blue-600', bgColor: 'bg-blue-100' },
       { label: 'Present Today', value: presentCount.toString(), icon: CheckCircle, color: 'text-green-600', bgColor: 'bg-green-100' },
-      { label: 'Late Today', value: lateCount.toString(), icon: Clock, color: 'text-yellow-600', bgColor: 'bg-yellow-100' },
       { label: 'Absent Today', value: absentCount.toString(), icon: XCircle, color: 'text-red-600', bgColor: 'bg-red-100' },
       { label: 'Attendance Rate', value: `${attendanceRate}%`, icon: Calendar, color: 'text-purple-600', bgColor: 'bg-purple-100' }
     ]
@@ -62,7 +60,6 @@ export default function AttendancePage() {
     switch (status) {
       case 'present': return 'bg-green-100 text-green-800'
       case 'absent': return 'bg-red-100 text-red-800'
-      case 'late': return 'bg-yellow-100 text-yellow-800'
       default: return 'bg-gray-100 text-gray-800'
     }
   }
@@ -156,13 +153,6 @@ export default function AttendancePage() {
                   onClick={() => setFilterStatus('absent')}
                 >
                   Absent
-                </Button>
-                <Button
-                  variant={filterStatus === 'late' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setFilterStatus('late')}
-                >
-                  Late
                 </Button>
               </div>
             </div>
