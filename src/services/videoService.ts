@@ -1,6 +1,9 @@
 import { requireApiEndpoint } from '../config/api'
 import { getAuthHeaders } from './authToken'
 
+const MAX_PROCESSING_STATUS_CHECKS = 10
+const PROCESSING_STATUS_INTERVAL_MS = 8000
+
 export interface VideoUploadProgress {
   loaded: number
   total: number
@@ -240,11 +243,11 @@ class VideoService {
     videoId: string,
     onStatusUpdate?: (status: string) => void
   ): Promise<VideoAnalysisResult> {
-    const maxAttempts = 120 // 10 minutes max (5s intervals)
-    let attempts = 0
+    let checks = 0
 
-    while (attempts < maxAttempts) {
+    while (checks < MAX_PROCESSING_STATUS_CHECKS) {
       const result = await this.getVideoAnalysis(videoId)
+      checks += 1
 
       if (onStatusUpdate) {
         onStatusUpdate(result.processingStatus)
@@ -258,11 +261,10 @@ class VideoService {
         throw new Error('Video processing failed')
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 5000))
-      attempts++
+      await new Promise((resolve) => setTimeout(resolve, PROCESSING_STATUS_INTERVAL_MS))
     }
 
-    throw new Error('Video processing timeout')
+    throw new Error('Video is still processing. Check the processed recordings list again shortly.')
   }
 
   /**
