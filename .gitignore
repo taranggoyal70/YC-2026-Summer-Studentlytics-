@@ -58,3 +58,6 @@ backend/__pycache__/
 .env*
 .agents/
 skills-lock.json
+
+# Never commit runtime or biometric data
+backend/data/
