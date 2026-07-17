@@ -12,11 +12,9 @@ type ClerkUser = {
 export function getClerkRole(user: ClerkUser | null | undefined): AppRole {
   const metadataRole = user?.publicMetadata?.role
   if (allowedRoles.includes(metadataRole as AppRole)) return metadataRole as AppRole
-  // Fallback while the server-side promotion of the signup-requested role is
-  // in flight. Display-level only — the backend authorizes from the token.
-  const requestedRole = user?.unsafeMetadata?.role
-  if (requestedRole === 'teacher' || requestedRole === 'student') return requestedRole
-  return 'student'
+  // Accounts are organizers (ADR-0007); participants are roster records,
+  // not accounts. Display-level only — the backend authorizes from the token.
+  return 'teacher'
 }
 
 export function getDisplayName(user: ClerkUser | null | undefined): string {

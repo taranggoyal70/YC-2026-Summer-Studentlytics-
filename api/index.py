@@ -291,9 +291,9 @@ def _clerk_api(path: str, method: str = "GET", body: Optional[dict] = None) -> O
 
 
 def resolve_role(user: AuthContext) -> str:
-    """Promote the role requested at signup (unsafe_metadata) into
-    public_metadata so tokens carry it. Self-serve roles are safe because
-    tenancy is per-owner (ADR-0006); 'admin' is never self-serve."""
+    """Every account is an organizer (ADR-0007): participants are roster
+    records, not accounts. First /api/me stamps role=teacher into
+    public_metadata so tokens carry it. 'admin' is never self-serve."""
     if user.role != "student":
         return user.role  # token already carries an explicit role
     clerk_user = _clerk_api(f"/users/{user.user_id}")
@@ -302,10 +302,8 @@ def resolve_role(user: AuthContext) -> str:
     public_role = (clerk_user.get("public_metadata") or {}).get("role")
     if public_role in ALLOWED_ROLES:
         return public_role
-    requested = (clerk_user.get("unsafe_metadata") or {}).get("role")
-    promoted = requested if requested in ("student", "teacher") else "student"
-    _clerk_api(f"/users/{user.user_id}/metadata", "PATCH", {"public_metadata": {"role": promoted}})
-    return promoted
+    _clerk_api(f"/users/{user.user_id}/metadata", "PATCH", {"public_metadata": {"role": "teacher"}})
+    return "teacher"
 
 
 @router.get("/me")

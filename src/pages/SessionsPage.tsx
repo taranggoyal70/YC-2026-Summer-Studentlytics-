@@ -1,14 +1,11 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { useUser } from '@clerk/react'
 import { motion } from 'framer-motion'
-import { Calendar, Clock, Video, Upload, X, CheckCircle, Loader2, Users, Brain, AlertCircle, ClipboardList, CalendarPlus, ChevronDown } from 'lucide-react'
+import { Calendar, Clock, Video, Upload, X, CheckCircle, Loader2, Users, Brain, AlertCircle, ClipboardList } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { videoService, VideoUploadProgress, VideoAnalysisResult } from '../services/videoService'
-import { addToCalendar } from '../utils/calendarUtils'
 import { listSessions, SessionSummary } from '../services/insightsService'
-import { getClerkRole } from '../auth/clerk'
 
 const quickActions = [
   { title: 'Upload Recording', description: 'Analyze a class, webinar, or event video', icon: Upload, action: 'upload' },
@@ -29,11 +26,8 @@ export default function SessionsPage() {
   const [result, setResult] = useState<VideoAnalysisResult | null>(null)
   const [processedVideos, setProcessedVideos] = useState<VideoAnalysisResult[]>([])
   const [expandedVideo, setExpandedVideo] = useState<string | null>(null)
-  const [calendarDropdownOpen, setCalendarDropdownOpen] = useState<string | null>(null)
   const [apiSessions, setApiSessions] = useState<SessionSummary[]>([])
   const [sessionsError, setSessionsError] = useState<string | null>(null)
-  const { user } = useUser()
-  const userRole = getClerkRole(user) === 'student' ? 'student' : 'teacher'
 
   // Real sessions from the API. Empty until the organization has sessions.
   useEffect(() => {
@@ -45,13 +39,13 @@ export default function SessionsPage() {
   // Deep link from Integrations: /sessions?upload=1 opens the upload flow.
   const [searchParams] = useSearchParams()
   useEffect(() => {
-    if (searchParams.get('upload') === '1' && userRole !== 'student') {
+    if (searchParams.get('upload') === '1') {
       const source = searchParams.get('source')
       setSelectedSession(source === 'zoom' ? 'Zoom Session' : source === 'meet' ? 'Meet Session' : '')
       setUploadModalOpen(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, userRole])
+  }, [searchParams])
 
   const sessions = useMemo(() => {
     return apiSessions.map((s) => {
@@ -162,7 +156,7 @@ export default function SessionsPage() {
       >
         <h1 className="text-4xl font-bold mb-4">Sessions</h1>
         <p className="text-xl text-muted-foreground mb-12">
-          {userRole === 'student' ? 'Upcoming sessions and your attendance record' : 'Upload recordings and track attendance, engagement, and early departures'}
+          Upload recordings and track attendance, engagement, and early departures
         </p>
 
         {sessionsError && (
@@ -173,133 +167,13 @@ export default function SessionsPage() {
         {!sessionsError && sessions.length === 0 && (
           <Card className="mb-8">
             <CardContent className="pt-6 text-sm text-muted-foreground">
-              No sessions yet. {userRole === 'student' ? 'Sessions will appear here once your organizer schedules them.' : 'Upload a recording or create a session to get started.'}
+              No sessions yet. Upload a recording or create a session to get started.
             </CardContent>
           </Card>
         )}
 
-        {/* PARTICIPANT VIEW - Session table */}
-        {userRole === 'student' && (
-          <div className="mb-12">
-            <h2 className="text-2xl font-bold mb-6">Your Sessions</h2>
-            <div className="space-y-6">
-              {sessions.map((session, index) => (
-                <motion.div
-                  key={session.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.5, delay: index * 0.1 }}
-                >
-                  <Card className="hover:shadow-lg transition-shadow">
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <CardTitle className="text-xl mb-2">{session.title}</CardTitle>
-                          <CardDescription>Instructor: {session.instructor}</CardDescription>
-                        </div>
-                        <span className="px-3 py-1 text-xs font-medium rounded-full bg-primary/10 text-primary">
-                          {session.type}
-                        </span>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex flex-wrap items-center gap-6 mb-4">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Calendar className="h-4 w-4" />
-                          <span>{session.date}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Clock className="h-4 w-4" />
-                          <span>{session.time}</span>
-                        </div>
-                        {session.type === 'Virtual' && (
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Video className="h-4 w-4" />
-                            <span>Online Session</span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex gap-2">
-                        <Button size="sm" className="flex items-center gap-2">
-                          <Video className="h-4 w-4" />
-                          Join Session
-                        </Button>
-                        
-                        {/* Add to Calendar Dropdown */}
-                        <div className="relative">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setCalendarDropdownOpen(calendarDropdownOpen === session.id ? null : session.id)}
-                            className="flex items-center gap-2"
-                          >
-                            <CalendarPlus className="h-4 w-4" />
-                            Add to Calendar
-                            <ChevronDown className="h-3 w-3" />
-                          </Button>
-                          
-                          {calendarDropdownOpen === session.id && (
-                            <>
-                              {/* Backdrop to close dropdown */}
-                              <div 
-                                className="fixed inset-0 z-10" 
-                                onClick={() => setCalendarDropdownOpen(null)}
-                              />
-                              
-                              {/* Dropdown Menu */}
-                              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
-                                <button
-                                  onClick={() => {
-                                    addToCalendar({
-                                      title: session.title,
-                                      description: `Join us for ${session.title}`,
-                                      location: session.type === 'Virtual' ? 'Online (Link will be provided)' : 'Campus',
-                                      startDate: session.date,
-                                      startTime: session.time.split(' - ')[0],
-                                      endTime: session.time.split(' - ')[1],
-                                      instructor: session.instructor,
-                                    }, 'google')
-                                    setCalendarDropdownOpen(null)
-                                  }}
-                                  className="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2 text-sm"
-                                >
-                                  <Calendar className="h-4 w-4" />
-                                  Google Calendar
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    addToCalendar({
-                                      title: session.title,
-                                      description: `Join us for ${session.title}`,
-                                      location: session.type === 'Virtual' ? 'Online (Link will be provided)' : 'Campus',
-                                      startDate: session.date,
-                                      startTime: session.time.split(' - ')[0],
-                                      endTime: session.time.split(' - ')[1],
-                                      instructor: session.instructor,
-                                    }, 'ics')
-                                    setCalendarDropdownOpen(null)
-                                  }}
-                                  className="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2 text-sm"
-                                >
-                                  <CalendarPlus className="h-4 w-4" />
-                                  Download ICS
-                                </button>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* STAFF VIEW - Session operations */}
-        {userRole === 'teacher' && (
-          <>
+        {/* Session operations */}
+        <>
             {/* Quick Actions - Above Recent Activities */}
             <div className="mb-12">
               <h2 className="text-2xl font-bold mb-6">Quick Actions</h2>
@@ -433,9 +307,8 @@ export default function SessionsPage() {
               </Card>
             </div>
           </>
-        )}
 
-        {/* Processed Recordings - Shown to both */}
+        {/* Processed Recordings */}
         {processedVideos.length > 0 && (
           <div>
             <h2 className="text-2xl font-bold mb-6">Processed Recordings</h2>

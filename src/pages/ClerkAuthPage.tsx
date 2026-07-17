@@ -1,15 +1,12 @@
 import { SignIn, SignUp } from '@clerk/react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { ScanFace } from 'lucide-react'
 
 interface ClerkAuthPageProps {
   mode?: 'sign-in' | 'sign-up'
-  role?: 'student' | 'teacher' | 'admin'
 }
 
-export default function ClerkAuthPage({ mode = 'sign-in', role }: ClerkAuthPageProps) {
-  const [searchParams] = useSearchParams()
-  const requestedRole = role || searchParams.get('role') || 'student'
+export default function ClerkAuthPage({ mode = 'sign-in' }: ClerkAuthPageProps) {
   const isSignUp = mode === 'sign-up'
 
   return (
@@ -34,13 +31,9 @@ export default function ClerkAuthPage({ mode = 'sign-in', role }: ClerkAuthPageP
           </div>
 
           {isSignUp ? (
-            <SignUp
-              forceRedirectUrl="/"
-              signInUrl="/login"
-              unsafeMetadata={{ role: requestedRole }}
-            />
+            <SignUp forceRedirectUrl="/" signInUrl="/login" />
           ) : (
-            <SignIn forceRedirectUrl="/" signUpUrl={`/signup/${requestedRole}`} />
+            <SignIn forceRedirectUrl="/" signUpUrl="/signup" />
           )}
         </div>
       </div>

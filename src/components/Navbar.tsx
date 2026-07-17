@@ -102,7 +102,7 @@ export default function Navbar() {
                   {isStaff ? (
                     <>
                       <Users className="h-4 w-4" />
-                      {userRole === 'admin' ? 'Admin' : 'Teacher'}
+                      {userRole === 'admin' ? 'Admin' : 'Organizer'}
                     </>
                   ) : (
                     <>

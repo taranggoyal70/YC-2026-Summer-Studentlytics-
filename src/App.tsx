@@ -7,10 +7,7 @@ import StudentsPage from './pages/StudentsPage'
 import IntegrationsPage from './pages/CoursesPage'
 import SessionsPage from './pages/SessionsPage'
 import LoginPage from './pages/LoginPage'
-import StudentLoginPage from './pages/StudentLoginPage'
-import TeacherLoginPage from './pages/TeacherLoginPage'
-import StudentSignupPage from './pages/StudentSignupPage'
-import TeacherSignupPage from './pages/TeacherSignupPage'
+import SignupPage from './pages/SignupPage'
 import DashboardPage from './pages/DashboardPage'
 import AttendancePage from './pages/AttendancePage'
 import LeaderboardPage from './pages/LeaderboardPage'
@@ -28,10 +25,12 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/login/student" element={<StudentLoginPage />} />
-      <Route path="/login/teacher" element={<TeacherLoginPage />} />
-      <Route path="/signup/student" element={<StudentSignupPage />} />
-      <Route path="/signup/teacher" element={<TeacherSignupPage />} />
+      <Route path="/signup" element={<SignupPage />} />
+      {/* Accounts are organizers (ADR-0007): legacy role-specific auth routes redirect. */}
+      <Route path="/login/student" element={<Navigate to="/login" replace />} />
+      <Route path="/login/teacher" element={<Navigate to="/login" replace />} />
+      <Route path="/signup/student" element={<Navigate to="/signup" replace />} />
+      <Route path="/signup/teacher" element={<Navigate to="/signup" replace />} />
       <Route path="/dashboard" element={
         <ProtectedRoute allowedRoles={['teacher', 'admin']}>
           <DashboardPage />
@@ -48,7 +47,11 @@ function App() {
         } />
         <Route path="/integrations" element={<IntegrationsPage />} />
         <Route path="/courses" element={<Navigate to="/integrations" replace />} />
-        <Route path="/sessions" element={<SessionsPage />} />
+        <Route path="/sessions" element={
+          <ProtectedRoute allowedRoles={['teacher', 'admin']}>
+            <SessionsPage />
+          </ProtectedRoute>
+        } />
         <Route path="/attendance" element={
           <ProtectedRoute allowedRoles={['teacher', 'admin']}>
             <AttendancePage />

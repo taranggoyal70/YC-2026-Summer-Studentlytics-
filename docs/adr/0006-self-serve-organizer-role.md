@@ -7,7 +7,7 @@ organization and a teacher role grants power over nothing outside it. The backen
 `unsafe_metadata` directly — only from the role claim in the verified JWT, which is sourced from
 `public_metadata`. `admin` is never self-serve.
 
-**Status**: accepted
+**Status**: superseded by ADR-0007
 
 **Considered Options**: Invite-only organizer accounts; trusting `unsafeMetadata` directly in the API;
 Clerk webhook-based promotion; first-touch promotion via `/api/me`.

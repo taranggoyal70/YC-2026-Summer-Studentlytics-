@@ -67,6 +67,9 @@ Use **Participant** in core product language because the same product tracks stu
 **Attendance vs Presence**:
 Use **Presence Window** for raw time intervals and **Attendance Decision** for the interpreted status shown in reports. Check-in and check-out are derived from the first and last presence window, never stored as the primitive.
 
+**Participant vs Account**:
+A **Participant** is a roster record — a person tracked in sessions — and has no login. An **account** belongs to an **Organizer** who runs the organization. "Student login" conflates the two; participant self-view, when it arrives, links an invited login to an existing participant record.
+
 **Real Data vs Demo Data**:
 **Real data** is data created through the product by authenticated users or produced by an analysis job. Hand-written arrays of plausible names are **demo data** no matter how realistic they look, and must never be labeled real. Demo data lives only in seed scripts, never in product code paths.
 
