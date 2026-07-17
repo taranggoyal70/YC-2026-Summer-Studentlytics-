@@ -48,6 +48,10 @@ _Avoid_: Focus score, performance score
 The observable facts behind an attendance decision or engagement score, such as first seen, last seen, duration, words spoken, questions asked, confidence, and presence windows.
 _Avoid_: Black-box AI result
 
+**Face Template**:
+The stored biometric encoding derived from a participant's enrollment photo, used only to verify presence in sessions the participant consented to. It is sensitive personal data, never demo content, and never belongs in version control.
+_Avoid_: Face encoding file, extracted face
+
 ## Flagged Ambiguities
 
 **Course vs Space**:
@@ -57,7 +61,10 @@ Use **Space** in core product language because Studentlytics supports universiti
 Use **Participant** in core product language because the same product tracks students, employees, attendees, guests, and speakers. Use **student** only in school-specific examples.
 
 **Attendance vs Presence**:
-Use **Presence Window** for raw time intervals and **Attendance Decision** for the interpreted status shown in reports.
+Use **Presence Window** for raw time intervals and **Attendance Decision** for the interpreted status shown in reports. Check-in and check-out are derived from the first and last presence window, never stored as the primitive.
+
+**Real Data vs Demo Data**:
+**Real data** is data created through the product by authenticated users or produced by an analysis job. Hand-written arrays of plausible names are **demo data** no matter how realistic they look, and must never be labeled real. Demo data lives only in seed scripts, never in product code paths.
 
 ## Example Dialogue
 
