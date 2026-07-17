@@ -21,7 +21,19 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
 
   const userRole = getClerkRole(user)
   if (!allowedRoles.includes(userRole)) {
-    return <Navigate to="/" replace />
+    // Explain the decision instead of silently bouncing home.
+    return (
+      <div className="min-h-screen flex items-center justify-center px-6">
+        <div className="max-w-md rounded-lg border bg-card p-6 text-center">
+          <h1 className="text-xl font-bold mb-2">Organizer access required</h1>
+          <p className="text-sm text-muted-foreground">
+            This page needs a {allowedRoles.join(' or ')} role — your account is signed in as {userRole}.
+            If you just signed up as an organizer, refresh this page in a few seconds while your role finishes
+            activating.
+          </p>
+        </div>
+      </div>
+    )
   }
 
   return <>{children}</>

@@ -39,6 +39,7 @@ CLERK_AUTHORIZED_PARTIES = [
 ]
 GH_REPO = os.getenv("GH_REPO", "").strip()
 GH_DISPATCH_TOKEN = os.getenv("GH_DISPATCH_TOKEN", "").strip()
+CLERK_SECRET_KEY = os.getenv("CLERK_SECRET_KEY", "").strip()
 
 ALLOWED_ROLES = {"student", "teacher", "admin"}
 Role = Literal["student", "teacher", "admin"]
@@ -272,11 +273,47 @@ def health():
     return {"status": "ok", "version": "2.0.0", "participants": participants}
 
 
+def _clerk_api(path: str, method: str = "GET", body: Optional[dict] = None) -> Optional[dict]:
+    if not CLERK_SECRET_KEY:
+        return None
+    req = urllib.request.Request(
+        f"https://api.clerk.com/v1{path}",
+        data=json.dumps(body).encode() if body is not None else None,
+        headers={"Authorization": f"Bearer {CLERK_SECRET_KEY}", "Content-Type": "application/json"},
+        method=method,
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return json.loads(resp.read().decode())
+    except Exception:
+        logger.warning("Clerk API call failed: %s %s", method, path)
+        return None
+
+
+def resolve_role(user: AuthContext) -> str:
+    """Promote the role requested at signup (unsafe_metadata) into
+    public_metadata so tokens carry it. Self-serve roles are safe because
+    tenancy is per-owner (ADR-0006); 'admin' is never self-serve."""
+    if user.role != "student":
+        return user.role  # token already carries an explicit role
+    clerk_user = _clerk_api(f"/users/{user.user_id}")
+    if not clerk_user:
+        return user.role
+    public_role = (clerk_user.get("public_metadata") or {}).get("role")
+    if public_role in ALLOWED_ROLES:
+        return public_role
+    requested = (clerk_user.get("unsafe_metadata") or {}).get("role")
+    promoted = requested if requested in ("student", "teacher") else "student"
+    _clerk_api(f"/users/{user.user_id}/metadata", "PATCH", {"public_metadata": {"role": promoted}})
+    return promoted
+
+
 @router.get("/me")
 async def me(user: AuthContext = Depends(require_user)):
+    role = resolve_role(user)
     with db() as conn:
         org_id = get_org_id(conn, user)
-    return {"user_id": user.user_id, "role": user.role, "email": user.email, "org_id": org_id}
+    return {"user_id": user.user_id, "role": role, "email": user.email, "org_id": org_id}
 
 
 # ── Participants (legacy alias: /students) ────────────────────────────────────
