@@ -1,8 +1,10 @@
+import { upload } from '@vercel/blob/client'
 import { requireApiEndpoint } from '../config/api'
-import { getAuthHeaders } from './authToken'
+import { getAuthHeaders, getAuthToken } from './authToken'
 
-const MAX_PROCESSING_STATUS_CHECKS = 10
-const PROCESSING_STATUS_INTERVAL_MS = 8000
+// Analysis runs in a GitHub Actions worker; first runs take several minutes.
+const MAX_PROCESSING_STATUS_CHECKS = 60
+const PROCESSING_STATUS_INTERVAL_MS = 15000
 
 export interface VideoUploadProgress {
   loaded: number
@@ -176,48 +178,42 @@ class VideoService {
   }
 
   /**
-   * Upload video to local FastAPI and start processing
+   * Upload a recording directly to Blob storage, then register it so the
+   * analysis worker is dispatched.
    */
   async uploadVideo(
     file: File,
     sessionTitle: string,
     onProgress?: (progress: VideoUploadProgress) => void
   ): Promise<{ videoId: string; uploadUrl: string }> {
-    const authHeaders = await getAuthHeaders()
-    return new Promise((resolve, reject) => {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('session_title', sessionTitle)
+    const token = await getAuthToken()
+    if (!token) throw new Error('You must be signed in to upload recordings.')
 
-      const xhr = new XMLHttpRequest()
-
-      xhr.upload.addEventListener('progress', (e) => {
-        if (e.lengthComputable && onProgress) {
-          onProgress({
-            loaded: e.loaded,
-            total: e.total,
-            percentage: Math.round((e.loaded / e.total) * 100),
-          })
-        }
-      })
-
-      xhr.addEventListener('load', () => {
-        if (xhr.status === 200) {
-          const data = JSON.parse(xhr.responseText)
-          resolve({ videoId: data.video_id, uploadUrl: '' })
-        } else {
-          reject(new Error(`Upload failed: ${xhr.responseText}`))
-        }
-      })
-
-      xhr.addEventListener('error', () => {
-        reject(new Error('Upload failed — is the backend running? (cd backend && uvicorn main:app --reload)'))
-      })
-
-      xhr.open('POST', `${this.getApiEndpoint()}/videos/upload`)
-      Object.entries(authHeaders).forEach(([key, value]) => xhr.setRequestHeader(key, value))
-      xhr.send(formData)
+    const blob = await upload(`recordings/${file.name}`, file, {
+      access: 'public',
+      handleUploadUrl: '/api/upload',
+      clientPayload: token,
+      onUploadProgress: ({ loaded, total, percentage }) => {
+        onProgress?.({ loaded, total, percentage: Math.round(percentage) })
+      },
     })
+
+    const response = await fetch(`${this.getApiEndpoint()}/videos/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
+      body: JSON.stringify({
+        blob_url: blob.url,
+        filename: file.name,
+        size_mb: Math.round((file.size / (1024 * 1024)) * 10) / 10,
+        session_title: sessionTitle,
+      }),
+    })
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ detail: response.statusText }))
+      throw new Error(err.detail ?? 'Failed to register recording')
+    }
+    const data = await response.json()
+    return { videoId: data.video_id, uploadUrl: blob.url }
   }
 
   /**
@@ -272,23 +268,29 @@ class VideoService {
    */
   async uploadStudentPhoto(
     studentId: string,
-    studentName: string,
+    _studentName: string,
     photoFile: File
   ): Promise<void> {
-    const formData = new FormData()
-    formData.append('file', photoFile)
-    formData.append('student_id', studentId)
-    formData.append('student_name', studentName)
+    const token = await getAuthToken()
+    if (!token) throw new Error('You must be signed in to enroll photos.')
 
-    const response = await fetch(`${this.getApiEndpoint()}/students/photo`, {
-      method: 'POST',
-      headers: await getAuthHeaders(),
-      body: formData,
+    const blob = await upload(`photos/${studentId}-${photoFile.name}`, photoFile, {
+      access: 'public',
+      handleUploadUrl: '/api/upload',
+      clientPayload: token,
     })
 
+    const response = await fetch(
+      `${this.getApiEndpoint()}/students/records/${encodeURIComponent(studentId)}/photo`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
+        body: JSON.stringify({ blob_url: blob.url }),
+      }
+    )
     if (!response.ok) {
       const err = await response.json().catch(() => ({ detail: response.statusText }))
-      throw new Error(err.detail ?? 'Failed to upload student photo')
+      throw new Error(err.detail ?? 'Failed to register student photo')
     }
   }
 

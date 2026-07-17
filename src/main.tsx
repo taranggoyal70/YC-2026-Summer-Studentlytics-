@@ -4,7 +4,6 @@ import { BrowserRouter } from 'react-router-dom'
 import { ClerkProvider } from '@clerk/react'
 import App from './App.tsx'
 import './index.css'
-import { SemesterProvider } from './contexts/SemesterContext'
 import ClerkTokenBridge from './auth/ClerkTokenBridge'
 import InactivityLogout from './auth/InactivityLogout'
 
@@ -31,9 +30,7 @@ if (!clerkPublishableKey) {
         <BrowserRouter>
           <ClerkTokenBridge />
           <InactivityLogout />
-          <SemesterProvider>
-            <App />
-          </SemesterProvider>
+          <App />
         </BrowserRouter>
       </ClerkProvider>
     </React.StrictMode>,
