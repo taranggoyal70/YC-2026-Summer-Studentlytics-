@@ -18,12 +18,25 @@ import subprocess
 import tempfile
 import threading
 
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks, Body
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks, Depends, Request, status
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import aiofiles
 
-# Import auth router
-from auth import router as auth_router
+from security import (
+    AuthContext,
+    OpportunityPayload,
+    OpportunityUpdatePayload,
+    StudentPayload,
+    StudentUpdatePayload,
+    audit_event,
+    check_rate_limit,
+    is_admin,
+    owns_resource,
+    require_roles,
+    require_user,
+    sanitize_payload,
+)
 
 # ── Setup ──────────────────────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO)
@@ -75,8 +88,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include authentication routes
-app.include_router(auth_router, prefix="/api/auth", tags=["authentication"])
+@app.middleware("http")
+async def security_headers_and_rate_limits(request: Request, call_next):
+    client_host = request.client.host if request.client else "unknown"
+    route_key = f"{client_host}:{request.url.path}"
+    limit = 20 if request.url.path.startswith("/api/auth") else 240
+
+    if os.getenv("ENVIRONMENT") == "production" and request.headers.get("x-forwarded-proto") != "https":
+        return JSONResponse({"detail": "HTTPS required"}, status_code=status.HTTP_400_BAD_REQUEST)
+
+    if not check_rate_limit(route_key, limit=limit, window_seconds=60):
+        audit_event("rate_limit_exceeded", None, {"path": request.url.path, "client": client_host})
+        return JSONResponse({"detail": "Too many requests"}, status_code=status.HTTP_429_TOO_MANY_REQUESTS)
+
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none'; object-src 'none'"
+    return response
+
+
+@app.exception_handler(Exception)
+async def generic_exception_handler(request: Request, exc: Exception):
+    logger.exception("Unhandled backend error at %s", request.url.path)
+    return JSONResponse({"detail": "Internal server error"}, status_code=500)
 
 # ── In-memory state ────────────────────────────────────────────────────────────
 # { video_id: { status, progress, result, error } }
@@ -138,6 +175,8 @@ def load_encodings() -> dict:
         return {
             sid: {
                 "name": data["name"],
+                "owner_id": data.get("owner_id"),
+                "student_id": data.get("student_id", sid),
                 "encodings": [np.array(e) for e in data["encodings"]],
             }
             for sid, data in raw.items()
@@ -152,6 +191,8 @@ def save_encodings(encodings: dict):
     serializable = {
         sid: {
             "name": data["name"],
+            "owner_id": data.get("owner_id"),
+            "student_id": data.get("student_id", sid),
             "encodings": [e.tolist() for e in data["encodings"]],
         }
         for sid, data in encodings.items()
@@ -172,113 +213,223 @@ def health():
     }
 
 
+@app.get("/me/export")
+def export_my_data(user: AuthContext = Depends(require_user)):
+    """Export the signed-in user's stored application data."""
+    owned_students = [student for student in load_students() if student.get("owner_id") == user.user_id]
+    owned_opportunities = [
+        opportunity for opportunity in load_opportunities()
+        if opportunity.get("owner_id") == user.user_id
+    ]
+    owned_jobs = [job for job in processing_jobs.values() if job.get("owner_id") == user.user_id]
+    audit_event("account_data_exported", user.user_id)
+    return {
+        "exported_at": datetime.utcnow().isoformat(),
+        "user_id": user.user_id,
+        "students": owned_students,
+        "opportunities": owned_opportunities,
+        "video_jobs": owned_jobs,
+    }
+
+
+@app.delete("/me")
+def delete_my_data(user: AuthContext = Depends(require_user)):
+    """Delete or anonymize the signed-in user's stored application data."""
+    students = [student for student in load_students() if student.get("owner_id") != user.user_id]
+    opportunities = [
+        opportunity for opportunity in load_opportunities()
+        if opportunity.get("owner_id") != user.user_id
+    ]
+    save_students(students)
+    save_opportunities(opportunities)
+
+    deleted_jobs = [
+        video_id for video_id, job in list(processing_jobs.items())
+        if job.get("owner_id") == user.user_id
+    ]
+    for video_id in deleted_jobs:
+        processing_jobs.pop(video_id, None)
+
+    removed_encodings = [
+        sid for sid in list(student_encodings.keys())
+        if sid.startswith(f"{user.user_id}:")
+    ]
+    for sid in removed_encodings:
+        student_encodings.pop(sid, None)
+    if removed_encodings and VIDEO_PROCESSING_AVAILABLE:
+        save_encodings(student_encodings)
+
+    audit_event("account_data_deleted", user.user_id, {"video_jobs": deleted_jobs})
+    return {
+        "deleted": True,
+        "message": "Stored Studentlytics application data was deleted. Clerk identity deletion must be completed through Clerk with CLERK_SECRET_KEY enabled.",
+    }
+
+
 @app.get("/students")
-def list_students():
+def list_students(user: AuthContext = Depends(require_user)):
     """Return the local student roster used by the dashboard."""
-    return load_students()
+    students = load_students()
+    if is_admin(user):
+        return students
+    return [student for student in students if student.get("owner_id") == user.user_id]
 
 
 @app.get("/students/records/{student_id}")
-def get_student(student_id: str):
+def get_student(student_id: str, user: AuthContext = Depends(require_user)):
     """Return one student by student_id or record_id."""
     for student in load_students():
         if student.get("student_id") == student_id or student.get("record_id") == student_id:
+            if not owns_resource(student, user):
+                raise HTTPException(403, "Forbidden")
             return student
     raise HTTPException(404, f"Student {student_id} not found")
 
 
 @app.post("/students")
-def create_student(student: dict = Body(...)):
+def create_student(
+    student: StudentPayload,
+    user: AuthContext = Depends(require_roles("teacher", "admin")),
+):
     """Create a student in the local roster."""
     students = load_students()
-    student_id = student.get("student_id") or student.get("id")
+    payload = sanitize_payload(student)
+    student_id = payload["student_id"]
     if not student_id:
         raise HTTPException(400, "student_id is required")
 
-    if any(s.get("student_id") == student_id for s in students):
+    if any(s.get("student_id") == student_id and s.get("owner_id") == user.user_id for s in students):
         raise HTTPException(409, f"Student {student_id} already exists")
 
     normalized = {
-        **student,
+        **payload,
         "student_id": student_id,
-        "student_name": student.get("student_name") or student.get("name") or student_id,
-        "student_email": student.get("student_email") or student.get("email") or "",
-        "record_id": student.get("record_id") or f"local#{student_id}",
+        "student_name": payload["student_name"],
+        "student_email": payload.get("student_email") or "",
+        "record_id": f"{user.user_id}#{student_id}",
+        "owner_id": user.user_id,
     }
     students.append(normalized)
     save_students(students)
+    audit_event("student_created", user.user_id, {"student_id": student_id})
     return normalized
 
 
 @app.put("/students/records/{student_id}")
-def update_student(student_id: str, updates: dict = Body(...)):
+def update_student(
+    student_id: str,
+    updates: StudentUpdatePayload,
+    user: AuthContext = Depends(require_roles("teacher", "admin")),
+):
     """Update a student in the local roster."""
     students = load_students()
+    payload = sanitize_payload(updates)
     for index, student in enumerate(students):
         if student.get("student_id") == student_id or student.get("record_id") == student_id:
-            updated = {**student, **updates}
+            if not owns_resource(student, user):
+                raise HTTPException(403, "Forbidden")
+            updated = {**student, **payload, "owner_id": student.get("owner_id", user.user_id)}
             students[index] = updated
             save_students(students)
+            audit_event("student_updated", user.user_id, {"student_id": student_id})
             return updated
     raise HTTPException(404, f"Student {student_id} not found")
 
 
 @app.delete("/students/records/{student_id}")
-def delete_student(student_id: str):
+def delete_student(
+    student_id: str,
+    user: AuthContext = Depends(require_roles("teacher", "admin")),
+):
     """Delete a student from the local roster."""
     students = load_students()
+    target = next(
+        (
+            student for student in students
+            if student.get("student_id") == student_id or student.get("record_id") == student_id
+        ),
+        None,
+    )
+    if not target:
+        raise HTTPException(404, f"Student {student_id} not found")
+    if not owns_resource(target, user):
+        raise HTTPException(403, "Forbidden")
+
     remaining = [
         student for student in students
         if student.get("student_id") != student_id and student.get("record_id") != student_id
     ]
-    if len(remaining) == len(students):
-        raise HTTPException(404, f"Student {student_id} not found")
     save_students(remaining)
+    audit_event("student_deleted", user.user_id, {"student_id": student_id})
     return {"deleted": student_id}
 
 
 @app.get("/opportunities")
-def list_opportunities():
+def list_opportunities(user: AuthContext = Depends(require_user)):
     """Return opportunities created by staff."""
-    return load_opportunities()
+    opportunities = load_opportunities()
+    if is_admin(user):
+        return opportunities
+    return [opportunity for opportunity in opportunities if opportunity.get("owner_id") == user.user_id]
 
 
 @app.post("/opportunities")
-def create_opportunity(opportunity: dict = Body(...)):
+def create_opportunity(
+    opportunity: OpportunityPayload,
+    user: AuthContext = Depends(require_roles("teacher", "admin")),
+):
     """Create a staff-managed opportunity."""
     opportunities = load_opportunities()
+    payload = sanitize_payload(opportunity)
     new_opportunity = {
-        **opportunity,
-        "id": opportunity.get("id") or str(uuid.uuid4())[:8],
-        "created_at": opportunity.get("created_at") or datetime.utcnow().isoformat(),
+        **payload,
+        "id": str(uuid.uuid4())[:8],
+        "owner_id": user.user_id,
+        "created_at": datetime.utcnow().isoformat(),
         "updated_at": datetime.utcnow().isoformat(),
     }
     opportunities.insert(0, new_opportunity)
     save_opportunities(opportunities)
+    audit_event("opportunity_created", user.user_id, {"opportunity_id": new_opportunity["id"]})
     return new_opportunity
 
 
 @app.put("/opportunities/{opportunity_id}")
-def update_opportunity(opportunity_id: str, updates: dict = Body(...)):
+def update_opportunity(
+    opportunity_id: str,
+    updates: OpportunityUpdatePayload,
+    user: AuthContext = Depends(require_roles("teacher", "admin")),
+):
     """Update a staff-managed opportunity."""
     opportunities = load_opportunities()
+    payload = sanitize_payload(updates)
     for index, opportunity in enumerate(opportunities):
         if opportunity.get("id") == opportunity_id:
-            updated = {**opportunity, **updates, "id": opportunity_id, "updated_at": datetime.utcnow().isoformat()}
+            if not owns_resource(opportunity, user):
+                raise HTTPException(403, "Forbidden")
+            updated = {**opportunity, **payload, "id": opportunity_id, "updated_at": datetime.utcnow().isoformat()}
             opportunities[index] = updated
             save_opportunities(opportunities)
+            audit_event("opportunity_updated", user.user_id, {"opportunity_id": opportunity_id})
             return updated
     raise HTTPException(404, f"Opportunity {opportunity_id} not found")
 
 
 @app.delete("/opportunities/{opportunity_id}")
-def delete_opportunity(opportunity_id: str):
+def delete_opportunity(
+    opportunity_id: str,
+    user: AuthContext = Depends(require_roles("teacher", "admin")),
+):
     """Delete a staff-managed opportunity."""
     opportunities = load_opportunities()
-    remaining = [opportunity for opportunity in opportunities if opportunity.get("id") != opportunity_id]
-    if len(remaining) == len(opportunities):
+    target = next((opportunity for opportunity in opportunities if opportunity.get("id") == opportunity_id), None)
+    if not target:
         raise HTTPException(404, f"Opportunity {opportunity_id} not found")
+    if not owns_resource(target, user):
+        raise HTTPException(403, "Forbidden")
+    remaining = [opportunity for opportunity in opportunities if opportunity.get("id") != opportunity_id]
     save_opportunities(remaining)
+    audit_event("opportunity_deleted", user.user_id, {"opportunity_id": opportunity_id})
     return {"deleted": opportunity_id}
 
 
@@ -287,6 +438,7 @@ async def upload_student_photo(
     file: UploadFile = File(...),
     student_id: str = Form(...),
     student_name: str = Form(...),
+    user: AuthContext = Depends(require_roles("teacher", "admin")),
 ):
     """
     Upload a student photo and index their face for attendance tracking.
@@ -297,11 +449,17 @@ async def upload_student_photo(
 
     if not file.content_type.startswith("image/"):
         raise HTTPException(400, "File must be an image")
+    if Path(file.filename or "").suffix.lower() not in {".jpg", ".jpeg", ".png", ".webp"}:
+        raise HTTPException(400, "Unsupported image type")
+    if not student_id or not student_name:
+        raise HTTPException(400, "Invalid student payload")
 
     # Save photo
     ext = Path(file.filename).suffix or ".jpg"
-    photo_path = PHOTOS_DIR / f"{student_id}{ext}"
+    photo_path = PHOTOS_DIR / f"{user.user_id}_{student_id}{ext}"
     contents = await file.read()
+    if len(contents) > 8 * 1024 * 1024:
+        raise HTTPException(413, "Image is too large")
     async with aiofiles.open(photo_path, "wb") as f:
         await f.write(contents)
 
@@ -317,33 +475,35 @@ async def upload_student_photo(
 
     encodings = face_recognition.face_encodings(rgb, locs)
     encoding = encodings[0]
+    encoding_key = f"{user.user_id}:{student_id}"
 
     # Append to student's encoding list (multiple photos = better accuracy)
-    if student_id not in student_encodings:
-        student_encodings[student_id] = {"name": student_name, "encodings": []}
-    student_encodings[student_id]["encodings"].append(encoding)
+    if encoding_key not in student_encodings:
+        student_encodings[encoding_key] = {"name": student_name, "encodings": [], "owner_id": user.user_id, "student_id": student_id}
+    student_encodings[encoding_key]["encodings"].append(encoding)
     save_encodings(student_encodings)
 
-    logger.info(f"Enrolled {student_name} ({student_id}) — {len(student_encodings[student_id]['encodings'])} photo(s)")
+    audit_event("student_face_enrolled", user.user_id, {"student_id": student_id})
 
     return {
         "student_id": student_id,
         "student_name": student_name,
-        "photos_enrolled": len(student_encodings[student_id]["encodings"]),
+        "photos_enrolled": len(student_encodings[encoding_key]["encodings"]),
         "message": f"Face enrolled successfully for {student_name}",
     }
 
 
 @app.get("/students/enrolled")
-def get_enrolled_students():
+def get_enrolled_students(user: AuthContext = Depends(require_roles("teacher", "admin"))):
     """List all students with enrolled face photos."""
     return [
         {
-            "student_id": sid,
+            "student_id": data.get("student_id", sid),
             "name": data["name"],
             "photos": len(data["encodings"]),
         }
         for sid, data in student_encodings.items()
+        if data.get("owner_id") == user.user_id or is_admin(user)
     ]
 
 
@@ -352,6 +512,7 @@ async def upload_video(
     file: UploadFile = File(...),
     session_title: str = Form("Class Session"),
     background_tasks: BackgroundTasks = BackgroundTasks(),
+    user: AuthContext = Depends(require_roles("teacher", "admin")),
 ):
     """Upload a classroom video and start processing."""
     if not VIDEO_PROCESSING_AVAILABLE:
@@ -359,6 +520,8 @@ async def upload_video(
 
     if not file.content_type.startswith("video/"):
         raise HTTPException(400, "File must be a video")
+    if Path(file.filename or "").suffix.lower() not in {".mp4", ".mov", ".avi", ".webm", ".mkv"}:
+        raise HTTPException(400, "Unsupported video type")
 
     video_id = str(uuid.uuid4())[:8]
     ext = Path(file.filename).suffix or ".mp4"
@@ -366,6 +529,8 @@ async def upload_video(
 
     # Stream save
     contents = await file.read()
+    if len(contents) > 2 * 1024 * 1024 * 1024:
+        raise HTTPException(413, "Video is too large")
     async with aiofiles.open(video_path, "wb") as f:
         await f.write(contents)
 
@@ -376,6 +541,7 @@ async def upload_video(
     processing_jobs[video_id] = {
         "video_id": video_id,
         "session_title": session_title,
+        "owner_id": user.user_id,
         "status": "queued",
         "progress": 0,
         "uploaded_at": datetime.utcnow().isoformat(),
@@ -386,6 +552,7 @@ async def upload_video(
 
     # Process in background
     background_tasks.add_task(process_video, video_id, video_path, session_title)
+    audit_event("video_uploaded", user.user_id, {"video_id": video_id})
 
     return {
         "video_id": video_id,
@@ -395,17 +562,21 @@ async def upload_video(
 
 
 @app.get("/videos/{video_id}/status")
-def get_video_status(video_id: str):
+def get_video_status(video_id: str, user: AuthContext = Depends(require_user)):
     """Poll processing status for a video."""
     if video_id not in processing_jobs:
         raise HTTPException(404, f"Video {video_id} not found")
+    if processing_jobs[video_id].get("owner_id") != user.user_id and not is_admin(user):
+        raise HTTPException(403, "Forbidden")
     return processing_jobs[video_id]
 
 
 @app.get("/videos")
-def list_videos():
+def list_videos(user: AuthContext = Depends(require_user)):
     """List all processed videos with results."""
-    return list(processing_jobs.values())
+    if is_admin(user):
+        return list(processing_jobs.values())
+    return [job for job in processing_jobs.values() if job.get("owner_id") == user.user_id]
 
 
 # ── Audio transcription ────────────────────────────────────────────────────────
@@ -609,6 +780,7 @@ def process_video(video_id: str, video_path: Path, session_title: str):
     """
     job = processing_jobs[video_id]
     job["status"] = "processing"
+    owner_id = job.get("owner_id")
     start_time = time.time()
 
     try:
@@ -699,6 +871,8 @@ def process_video(video_id: str, video_path: Path, session_title: str):
                 best_dist = 0.6  # tolerance — lower = stricter
 
                 for sid, sdata in student_encodings.items():
+                    if owner_id and sdata.get("owner_id") != owner_id:
+                        continue
                     if not sdata["encodings"]:
                         continue
                     distances = face_recognition.face_distance(sdata["encodings"], enc)
@@ -760,13 +934,22 @@ def process_video(video_id: str, video_path: Path, session_title: str):
             audio_data = {"per_student": {}, "camera_off": {"segment_count": 0, "word_count": 0, "segments": []}}
         else:
             speech_segments = audio_result[0]
-            student_names = {sid: sdata["name"] for sid, sdata in student_encodings.items()}
+            student_names = {
+                sid: sdata["name"]
+                for sid, sdata in student_encodings.items()
+                if not owner_id or sdata.get("owner_id") == owner_id
+            }
             audio_data = attribute_speech(speech_segments, face_windows, student_names)
             logger.info(f"[{video_id}] Transcription done — {len(speech_segments)} segments, "
                         f"{audio_data['camera_off']['segment_count']} camera-off segments")
 
         # ── Build results ─────────────────────────────────────────────────────
-        enrolled_count = len(student_encodings)
+        scoped_encodings = {
+            sid: sdata
+            for sid, sdata in student_encodings.items()
+            if not owner_id or sdata.get("owner_id") == owner_id
+        }
+        enrolled_count = len(scoped_encodings)
         present_students = []
         absent_students = []
         camera_off_speaking = []  # students with no face but speaking
@@ -774,15 +957,16 @@ def process_video(video_id: str, video_path: Path, session_title: str):
         # Total words spoken by all students (for relative participation score)
         all_word_counts = {
             sid: audio_data["per_student"].get(sid, {}).get("word_count", 0)
-            for sid in student_encodings
+            for sid in scoped_encodings
         }
         max_words = max(all_word_counts.values()) if all_word_counts else 1
 
-        for sid, sdata in student_encodings.items():
+        for sid, sdata in scoped_encodings.items():
             audio_stats = audio_data["per_student"].get(sid, {})
             word_count = audio_stats.get("word_count", 0)
             questions_asked = audio_stats.get("questions_asked", 0)
             timeline = build_presence_timeline(face_windows.get(sid, []), duration_sec)
+            public_student_id = sdata.get("student_id", sid)
 
             if sid in student_presence and len(student_presence[sid]) > 0:
                 scores = student_presence[sid]
@@ -813,7 +997,7 @@ def process_video(video_id: str, video_path: Path, session_title: str):
                     engagement_score = round((visual + participation + interaction + consistency) * 100, 1)
 
                     present_students.append({
-                        "student_id": sid,
+                        "student_id": public_student_id,
                         "name": sdata["name"],
                         "frames_detected": frames_present,
                         "presence_ratio": round(presence_ratio, 3),
@@ -832,7 +1016,7 @@ def process_video(video_id: str, video_path: Path, session_title: str):
                     })
                 else:
                     absent_students.append({
-                        "student_id": sid,
+                        "student_id": public_student_id,
                         "name": sdata["name"],
                         "frames_detected": frames_present,
                         "status": "absent",
@@ -847,7 +1031,7 @@ def process_video(video_id: str, video_path: Path, session_title: str):
                 engagement_score = round((participation + interaction + 0.05) * 100, 1)
 
                 camera_off_speaking.append({
-                    "student_id": sid,
+                    "student_id": public_student_id,
                     "name": sdata["name"],
                     "frames_detected": 0,
                     "presence_ratio": 0,
@@ -865,7 +1049,7 @@ def process_video(video_id: str, video_path: Path, session_title: str):
                 })
             else:
                 absent_students.append({
-                    "student_id": sid,
+                    "student_id": public_student_id,
                     "name": sdata["name"],
                     "frames_detected": 0,
                     "status": "absent",
@@ -899,6 +1083,7 @@ def process_video(video_id: str, video_path: Path, session_title: str):
 
         result = {
             "video_id": video_id,
+            "owner_id": owner_id,
             "session_title": session_title,
             "processed_at": datetime.utcnow().isoformat(),
             "duration_seconds": round(duration_sec, 1),

@@ -1,4 +1,5 @@
 import { requireApiEndpoint } from '../config/api'
+import { getAuthHeaders } from './authToken'
 
 export interface VideoUploadProgress {
   loaded: number
@@ -179,6 +180,7 @@ class VideoService {
     sessionTitle: string,
     onProgress?: (progress: VideoUploadProgress) => void
   ): Promise<{ videoId: string; uploadUrl: string }> {
+    const authHeaders = await getAuthHeaders()
     return new Promise((resolve, reject) => {
       const formData = new FormData()
       formData.append('file', file)
@@ -210,6 +212,7 @@ class VideoService {
       })
 
       xhr.open('POST', `${this.getApiEndpoint()}/videos/upload`)
+      Object.entries(authHeaders).forEach(([key, value]) => xhr.setRequestHeader(key, value))
       xhr.send(formData)
     })
   }
@@ -218,7 +221,9 @@ class VideoService {
    * Get video processing status
    */
   async getVideoAnalysis(videoId: string): Promise<VideoAnalysisResult> {
-    const response = await fetch(`${this.getApiEndpoint()}/videos/${videoId}/status`)
+    const response = await fetch(`${this.getApiEndpoint()}/videos/${videoId}/status`, {
+      headers: await getAuthHeaders(),
+    })
 
     if (!response.ok) {
       throw new Error('Failed to fetch video status')
@@ -275,6 +280,7 @@ class VideoService {
 
     const response = await fetch(`${this.getApiEndpoint()}/students/photo`, {
       method: 'POST',
+      headers: await getAuthHeaders(),
       body: formData,
     })
 
@@ -288,7 +294,9 @@ class VideoService {
    * Get all processed videos
    */
   async getAllVideos(): Promise<VideoAnalysisResult[]> {
-    const response = await fetch(`${this.getApiEndpoint()}/videos`)
+    const response = await fetch(`${this.getApiEndpoint()}/videos`, {
+      headers: await getAuthHeaders(),
+    })
 
     if (!response.ok) {
       throw new Error('Failed to fetch videos')
@@ -302,7 +310,9 @@ class VideoService {
    * Get all enrolled students
    */
   async getEnrolledStudents(): Promise<{ studentId: string; name: string; photos: number }[]> {
-    const response = await fetch(`${this.getApiEndpoint()}/students/enrolled`)
+    const response = await fetch(`${this.getApiEndpoint()}/students/enrolled`, {
+      headers: await getAuthHeaders(),
+    })
 
     if (!response.ok) {
       throw new Error('Failed to fetch enrolled students')

@@ -1,19 +1,19 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useClerk, useUser } from '@clerk/react'
 import { motion } from 'framer-motion'
-import { Mail, Calendar, Award, TrendingUp, BookOpen } from 'lucide-react'
+import { Download, Mail, Shield, Trash2, UserRound } from 'lucide-react'
 import { Button } from '../components/ui/button'
+import { getClerkRole, getDisplayName } from '../auth/clerk'
+import { deleteMyAccountData, exportMyData } from '../services/accountService'
 
 export default function ProfilePage() {
-  const [user, setUser] = useState<any>(null)
+  const { user, isLoaded } = useUser()
+  const { signOut } = useClerk()
+  const [status, setStatus] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [working, setWorking] = useState<'export' | 'delete' | null>(null)
 
-  useEffect(() => {
-    const userData = localStorage.getItem('user')
-    if (userData) {
-      setUser(JSON.parse(userData))
-    }
-  }, [])
-
-  if (!user) {
+  if (!isLoaded) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p>Loading...</p>
@@ -21,144 +21,129 @@ export default function ProfilePage() {
     )
   }
 
+  const role = getClerkRole(user)
+  const displayName = getDisplayName(user)
+  const email = user?.primaryEmailAddress?.emailAddress ?? 'Private'
+  const joinedAt = user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Recently'
+
+  const handleExport = async () => {
+    try {
+      setWorking('export')
+      setError(null)
+      setStatus(null)
+      const data = await exportMyData()
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = 'studentlytics-personal-data.json'
+      link.click()
+      URL.revokeObjectURL(url)
+      setStatus('Your personal data export is ready.')
+    } catch {
+      setError('We could not export your data right now.')
+    } finally {
+      setWorking(null)
+    }
+  }
+
+  const handleDelete = async () => {
+    const confirmed = window.confirm(
+      'Delete your Studentlytics account data? This removes your owned rosters, opportunities, processing jobs, and face enrollment data.'
+    )
+    if (!confirmed) return
+
+    try {
+      setWorking('delete')
+      setError(null)
+      setStatus(null)
+      await deleteMyAccountData()
+      await signOut({ redirectUrl: '/login' })
+    } catch {
+      setError('We could not delete your account data right now.')
+      setWorking(null)
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 py-12">
+    <div className="min-h-screen bg-slate-50 py-12">
       <div className="container mx-auto px-4 max-w-4xl">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
+          className="space-y-6"
         >
-          {/* Profile Header */}
-          <div className="bg-white rounded-2xl shadow-xl p-8 mb-6">
+          <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-8">
             <div className="flex flex-col md:flex-row items-center gap-6">
-              {/* Profile Picture */}
-              <div className="relative">
-                {user.picture ? (
-                  <img
-                    src={user.picture}
-                    alt={user.name}
-                    className="w-32 h-32 rounded-full border-4 border-blue-500 shadow-lg"
-                  />
+              <div className="w-28 h-28 rounded-full bg-slate-900 flex items-center justify-center text-white shadow-sm overflow-hidden">
+                {user?.imageUrl ? (
+                  <img src={user.imageUrl} alt={displayName} className="h-full w-full object-cover" />
                 ) : (
-                  <div className="w-32 h-32 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center border-4 border-white shadow-lg">
-                    <span className="text-4xl font-bold text-white">{user.name?.[0]}</span>
-                  </div>
+                  <UserRound className="h-12 w-12" />
                 )}
-                <div className="absolute -bottom-2 -right-2 bg-green-500 w-8 h-8 rounded-full border-4 border-white"></div>
               </div>
 
-              {/* Profile Info */}
               <div className="flex-1 text-center md:text-left">
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">{user.name}</h1>
-                <div className="flex flex-col md:flex-row gap-4 text-gray-600 mb-4">
+                <h1 className="text-3xl font-bold text-slate-950 mb-2">{displayName}</h1>
+                <div className="flex flex-col md:flex-row gap-4 text-slate-600 mb-4">
                   <div className="flex items-center gap-2 justify-center md:justify-start">
                     <Mail className="h-4 w-4" />
-                    <span className="text-sm">{user.email}</span>
+                    <span className="text-sm">{email}</span>
                   </div>
                   <div className="flex items-center gap-2 justify-center md:justify-start">
-                    <Calendar className="h-4 w-4" />
-                    <span className="text-sm">Joined {new Date().toLocaleDateString()}</span>
+                    <Shield className="h-4 w-4" />
+                    <span className="text-sm">Joined {joinedAt}</span>
                   </div>
                 </div>
-                <div className="flex gap-2 justify-center md:justify-start">
-                  <span className={`px-4 py-1.5 rounded-full text-sm font-medium ${
-                    user.type === 'teacher'
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'bg-purple-100 text-purple-700'
-                  }`}>
-                    {user.type === 'teacher' ? 'Staff Member' : 'Student'}
-                  </span>
-                </div>
+                <span className="inline-flex rounded-full bg-slate-100 px-4 py-1.5 text-sm font-medium text-slate-700 capitalize">
+                  {role}
+                </span>
               </div>
-
-              {/* Edit Button */}
-              <Button className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600">
-                Edit Profile
-              </Button>
             </div>
           </div>
 
-          {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              className="bg-white rounded-xl shadow-lg p-6"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
-                  <BookOpen className="h-6 w-6 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">5</p>
-                  <p className="text-sm text-gray-600">Courses Enrolled</p>
-                </div>
-              </div>
-            </motion.div>
+          <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-8">
+            <h2 className="text-2xl font-bold text-slate-950 mb-2">Privacy Controls</h2>
+            <p className="text-sm text-slate-600 mb-6">
+              Manage the personal data tied to your signed-in Studentlytics account.
+            </p>
 
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="bg-white rounded-xl shadow-lg p-6"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-                  <TrendingUp className="h-6 w-6 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">92%</p>
-                  <p className="text-sm text-gray-600">Attendance Rate</p>
-                </div>
+            {status && (
+              <div className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+                {status}
               </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              className="bg-white rounded-xl shadow-lg p-6"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center">
-                  <Award className="h-6 w-6 text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">850</p>
-                  <p className="text-sm text-gray-600">Engagement Score</p>
-                </div>
+            )}
+            {error && (
+              <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                {error}
               </div>
-            </motion.div>
-          </div>
+            )}
 
-          {/* Recent Activity */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.4 }}
-            className="bg-white rounded-2xl shadow-xl p-8"
-          >
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Recent Activity</h2>
-            <div className="space-y-4">
-              {[
-                { action: 'Attended', item: 'Introduction to React', time: '2 hours ago', color: 'blue' },
-                { action: 'Completed', item: 'JavaScript Fundamentals Quiz', time: '1 day ago', color: 'green' },
-                { action: 'Joined', item: 'Advanced TypeScript Session', time: '3 days ago', color: 'purple' },
-              ].map((activity, index) => (
-                <div key={index} className="flex items-center gap-4 p-4 rounded-lg hover:bg-gray-50 transition-colors">
-                  <div className={`w-2 h-2 rounded-full bg-${activity.color}-500`}></div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">
-                      {activity.action} <span className="text-gray-600">{activity.item}</span>
-                    </p>
-                    <p className="text-xs text-gray-500">{activity.time}</p>
-                  </div>
-                </div>
-              ))}
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-lg border border-slate-200 p-5">
+                <h3 className="font-semibold text-slate-900 mb-2">Export My Data</h3>
+                <p className="text-sm text-slate-600 mb-4">
+                  Download your owned rosters, opportunities, and processing records as JSON.
+                </p>
+                <Button onClick={handleExport} disabled={working !== null} className="w-full gap-2">
+                  <Download className="h-4 w-4" />
+                  {working === 'export' ? 'Preparing...' : 'Download Data'}
+                </Button>
+              </div>
+
+              <div className="rounded-lg border border-red-200 bg-red-50 p-5">
+                <h3 className="font-semibold text-red-950 mb-2">Delete My Account Data</h3>
+                <p className="text-sm text-red-800 mb-4">
+                  Permanently remove the Studentlytics data owned by this account.
+                </p>
+                <Button onClick={handleDelete} disabled={working !== null} variant="destructive" className="w-full gap-2">
+                  <Trash2 className="h-4 w-4" />
+                  {working === 'delete' ? 'Deleting...' : 'Delete Account Data'}
+                </Button>
+              </div>
             </div>
-          </motion.div>
+          </div>
         </motion.div>
       </div>
     </div>

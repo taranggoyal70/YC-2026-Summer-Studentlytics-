@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useUser } from '@clerk/react'
 import { motion } from 'framer-motion'
 import { Trophy, Medal, TrendingUp, Users, Target, Zap, ArrowUpDown, ArrowUp, ArrowDown, Lock } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -7,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { SemesterSelector } from '@/components/SemesterSelector'
 import { useSemester } from '@/contexts/SemesterContext'
 import { getStudentsBySemester, calculateTrend } from '@/data/semesterData'
+import { getClerkRole } from '@/auth/clerk'
 
 interface LeaderboardEntry {
   rank: number
@@ -29,21 +31,22 @@ export default function LeaderboardPage() {
   const [timeframe, setTimeframe] = useState<'week' | 'month' | 'semester'>('week')
   const [sortColumn, setSortColumn] = useState<SortColumn>('rank')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
-  const [userRole, setUserRole] = useState<'teacher' | 'student'>('student')
+  const { user, isLoaded } = useUser()
+  const userRole = isLoaded ? getClerkRole(user) : 'student'
 
-  // Check user role and redirect students
   useEffect(() => {
-    const userData = localStorage.getItem('user')
-    if (userData) {
-      const user = JSON.parse(userData)
-      setUserRole(user.type || 'student')
-      
-      // Redirect students away from leaderboard
-      if (user.type === 'student') {
-        navigate('/')
-      }
+    if (isLoaded && userRole === 'student') {
+      navigate('/')
     }
-  }, [navigate])
+  }, [isLoaded, navigate, userRole])
+
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+        <p className="text-gray-600">Checking access...</p>
+      </div>
+    )
+  }
 
   // If student, show access denied message while redirecting
   if (userRole === 'student') {

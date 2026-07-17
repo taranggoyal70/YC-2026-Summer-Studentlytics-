@@ -1,4 +1,5 @@
 import { requireApiEndpoint } from '../config/api'
+import { getAuthHeaders } from './authToken'
 
 export interface Opportunity {
   id: string
@@ -21,9 +22,11 @@ export interface Opportunity {
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const apiUrl = requireApiEndpoint()
+  const authHeaders = await getAuthHeaders()
   const response = await fetch(`${apiUrl}${path}`, {
     headers: {
       'Content-Type': 'application/json',
+      ...authHeaders,
       ...(options?.headers ?? {}),
     },
     ...options,

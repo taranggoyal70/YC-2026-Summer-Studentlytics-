@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useUser } from '@clerk/react'
 import { motion } from 'framer-motion'
 import { Calendar, Clock, Video, Upload, X, CheckCircle, Loader2, Users, Brain, AlertCircle, ClipboardList, CalendarPlus, ChevronDown } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
@@ -7,6 +8,7 @@ import { Button } from '../components/ui/button'
 import { videoService, VideoUploadProgress, VideoAnalysisResult } from '../services/videoService'
 import { addToCalendar } from '../utils/calendarUtils'
 import { realStudents } from '../data/transformStudents'
+import { getClerkRole } from '../auth/clerk'
 
 const quickActions = [
   { title: 'Upload Recording', description: 'Analyze a class, webinar, or event video', icon: Upload, action: 'upload' },
@@ -27,8 +29,9 @@ export default function SessionsPage() {
   const [result, setResult] = useState<VideoAnalysisResult | null>(null)
   const [processedVideos, setProcessedVideos] = useState<VideoAnalysisResult[]>([])
   const [expandedVideo, setExpandedVideo] = useState<string | null>(null)
-  const [userRole, setUserRole] = useState<'teacher' | 'student'>('student')
   const [calendarDropdownOpen, setCalendarDropdownOpen] = useState<number | null>(null)
+  const { user } = useUser()
+  const userRole = getClerkRole(user) === 'student' ? 'student' : 'teacher'
 
   // Generate sessions from real student data
   const sessions = useMemo(() => {
@@ -72,12 +75,6 @@ export default function SessionsPage() {
   }, [processedVideos, sessions])
 
   useEffect(() => {
-    const userData = localStorage.getItem('user')
-    if (userData) {
-      const user = JSON.parse(userData)
-      setUserRole(user.type || 'student')
-    }
-
     videoService.getAllVideos().then((videos) => {
       setProcessedVideos(videos.filter((v) => v.processingStatus === 'completed'))
     }).catch(() => {})

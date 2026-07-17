@@ -1,17 +1,20 @@
 import { useState, useEffect } from 'react'
 import { Search, MapPin, DollarSign, Users, Plus, X, Edit2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useUser } from '@clerk/react'
 import { Button } from '@/components/ui/button'
 import { motion } from 'framer-motion'
 import { opportunityService, Opportunity } from '@/services/opportunityService'
+import { getClerkRole } from '@/auth/clerk'
 
 const filterOptions = ['All', 'Job shadows', 'Micro-internships', 'Networking', 'Mentorship', 'Hackathons'] as const
 
 export default function OpportunitiesPage() {
   const navigate = useNavigate()
+  const { user } = useUser()
   const [searchQuery, setSearchQuery] = useState('')
   const [activeFilter, setActiveFilter] = useState<typeof filterOptions[number]>('All')
-  const [userRole, setUserRole] = useState<'teacher' | 'student'>('student')
+  const userRole = getClerkRole(user) === 'student' ? 'student' : 'teacher'
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -31,12 +34,6 @@ export default function OpportunitiesPage() {
   })
 
   useEffect(() => {
-    const userData = localStorage.getItem('user')
-    if (userData) {
-      const user = JSON.parse(userData)
-      setUserRole(user.type || 'student')
-    }
-
     opportunityService.list()
       .then((data) => {
         setOpportunities(data)

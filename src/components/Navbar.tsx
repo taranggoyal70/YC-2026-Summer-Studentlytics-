@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ScanFace, Menu, X, Users, User, LogOut, UserCircle, Settings } from 'lucide-react'
+import { SignOutButton, UserButton, useAuth, useUser } from '@clerk/react'
 import { Button } from './ui/button'
+import { getClerkRole, getDisplayName } from '../auth/clerk'
 
 const studentNavItems = [
   { name: 'Home', href: '/' },
@@ -24,37 +26,26 @@ const staffNavItems = [
 export default function Navbar() {
   const navigate = useNavigate()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [userRole, setUserRole] = useState<'teacher' | 'student'>('student')
-  const [user, setUser] = useState<any>(null)
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
+  const { isSignedIn } = useAuth()
+  const { user } = useUser()
 
-  useEffect(() => {
-    const auth = localStorage.getItem('isAuthenticated')
-    const userData = localStorage.getItem('user')
-    if (auth === 'true' && userData) {
-      setIsAuthenticated(true)
-      const parsed = JSON.parse(userData)
-      setUser(parsed)
-      setUserRole(parsed.type || 'student')
-    }
-  }, [])
+  const userRole = getClerkRole(user)
+  const displayName = getDisplayName(user)
+  const userEmail = user?.primaryEmailAddress?.emailAddress
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen)
   }
 
   const handleLogout = () => {
-    localStorage.removeItem('user')
-    localStorage.removeItem('isAuthenticated')
-    setIsAuthenticated(false)
-    setUser(null)
     setIsProfileMenuOpen(false)
     navigate('/login')
   }
 
   // Get navigation items based on user role
-  const navItems = userRole === 'teacher' ? staffNavItems : studentNavItems
+  const isStaff = userRole === 'teacher' || userRole === 'admin'
+  const navItems = isStaff ? staffNavItems : studentNavItems
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -95,18 +86,18 @@ export default function Navbar() {
 
           {/* Desktop Action Buttons */}
           <div className="hidden md:flex items-center gap-3">
-            {isAuthenticated ? (
+            {isSignedIn ? (
               <>
                 {/* Role Badge (non-clickable) */}
                 <div className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium ${
-                  userRole === 'teacher'
+                  isStaff
                     ? 'bg-blue-100 text-blue-700'
                     : 'bg-purple-100 text-purple-700'
                 }`}>
-                  {userRole === 'teacher' ? (
+                  {isStaff ? (
                     <>
                       <Users className="h-4 w-4" />
-                      Teacher
+                      {userRole === 'admin' ? 'Admin' : 'Teacher'}
                     </>
                   ) : (
                     <>
@@ -117,19 +108,15 @@ export default function Navbar() {
                 </div>
                 {/* User Profile with Dropdown */}
                 <div className="relative">
-                  <button
-                    onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                    className="flex items-center gap-3 hover:opacity-80 transition-opacity"
-                  >
-                    <span className="text-sm font-medium hidden md:block">{user?.name}</span>
-                    {user?.picture ? (
-                      <img src={user.picture} alt={user.name} className="h-8 w-8 rounded-full" />
-                    ) : (
-                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                        <span className="text-sm font-medium">{user?.name?.[0]}</span>
-                      </div>
-                    )}
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                      className="text-sm font-medium hidden md:block hover:opacity-80 transition-opacity"
+                    >
+                      {displayName}
+                    </button>
+                    <UserButton />
+                  </div>
 
                   {/* Dropdown Menu */}
                   <AnimatePresence>
@@ -144,16 +131,9 @@ export default function Navbar() {
                         {/* Profile Header */}
                         <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 border-b">
                           <div className="flex items-center gap-3">
-                            {user?.picture ? (
-                              <img src={user.picture} alt={user.name} className="h-12 w-12 rounded-full" />
-                            ) : (
-                              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                                <span className="text-lg font-medium">{user?.name?.[0]}</span>
-                              </div>
-                            )}
                             <div>
-                              <p className="font-semibold">{user?.name}</p>
-                              <p className="text-xs text-muted-foreground">{user?.email}</p>
+                              <p className="font-semibold">{displayName}</p>
+                              <p className="text-xs text-muted-foreground">{userEmail}</p>
                             </div>
                           </div>
                         </div>
@@ -187,16 +167,18 @@ export default function Navbar() {
                             </div>
                           </button>
                           <div className="border-t my-2"></div>
-                          <button
-                            onClick={handleLogout}
-                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-50 transition-colors text-left text-red-600"
-                          >
-                            <LogOut className="h-4 w-4" />
-                            <div>
-                              <p className="text-sm font-medium">Log Out</p>
-                              <p className="text-xs opacity-75">Sign out of your account</p>
-                            </div>
-                          </button>
+                          <SignOutButton redirectUrl="/login">
+                            <button
+                              onClick={handleLogout}
+                              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-50 transition-colors text-left text-red-600"
+                            >
+                              <LogOut className="h-4 w-4" />
+                              <div>
+                                <p className="text-sm font-medium">Log Out</p>
+                                <p className="text-xs opacity-75">Sign out of your account</p>
+                              </div>
+                            </button>
+                          </SignOutButton>
                         </div>
                       </motion.div>
                     )}
@@ -270,16 +252,33 @@ export default function Navbar() {
                 transition={{ duration: 0.3, delay: navItems.length * 0.05 }}
                 className="pt-3 space-y-2 border-t border-border/40"
               >
-                <Link to="/login" className="block">
-                  <Button variant="ghost" className="w-full" size="sm">
-                    Login
-                  </Button>
-                </Link>
-                <Link to="/login" className="block">
-                  <Button className="w-full shadow-lg shadow-primary/20" size="sm">
-                    Get Started
-                  </Button>
-                </Link>
+                {isSignedIn ? (
+                  <>
+                    <Link to="/profile" className="block" onClick={() => setIsMobileMenuOpen(false)}>
+                      <Button variant="ghost" className="w-full" size="sm">
+                        Profile
+                      </Button>
+                    </Link>
+                    <SignOutButton redirectUrl="/login">
+                      <Button variant="ghost" className="w-full text-red-600" size="sm">
+                        Log Out
+                      </Button>
+                    </SignOutButton>
+                  </>
+                ) : (
+                  <>
+                    <Link to="/login" className="block">
+                      <Button variant="ghost" className="w-full" size="sm">
+                        Login
+                      </Button>
+                    </Link>
+                    <Link to="/login" className="block">
+                      <Button className="w-full shadow-lg shadow-primary/20" size="sm">
+                        Get Started
+                      </Button>
+                    </Link>
+                  </>
+                )}
               </motion.div>
             </div>
           </motion.div>

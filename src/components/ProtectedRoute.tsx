@@ -1,26 +1,26 @@
 import { Navigate } from 'react-router-dom'
+import { useAuth, useUser } from '@clerk/react'
+import { getClerkRole, type AppRole } from '../auth/clerk'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
-  allowedRoles: ('student' | 'teacher' | 'admin')[]
+  allowedRoles: AppRole[]
 }
 
 export default function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
-  // Get user role immediately from localStorage
-  const userData = localStorage.getItem('user')
-  let userRole: string | null = null
-  
-  if (userData) {
-    try {
-      const user = JSON.parse(userData)
-      userRole = user.type || 'student'
-    } catch (e) {
-      console.error('Failed to parse user data:', e)
-    }
+  const { isLoaded, isSignedIn } = useAuth()
+  const { user } = useUser()
+
+  if (!isLoaded) {
+    return <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">Loading secure session...</div>
   }
 
-  // If no role or role not allowed, redirect immediately
-  if (!userRole || !allowedRoles.includes(userRole as any)) {
+  if (!isSignedIn) {
+    return <Navigate to="/login" replace />
+  }
+
+  const userRole = getClerkRole(user)
+  if (!allowedRoles.includes(userRole)) {
     return <Navigate to="/" replace />
   }
 

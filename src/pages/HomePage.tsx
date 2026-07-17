@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
+import { useAuth, useUser } from '@clerk/react'
 import HeroSection from '../components/HeroSection'
 import FeaturesSection from '../components/FeaturesSection'
 import StatsSection from '../components/StatsSection'
@@ -8,6 +9,7 @@ import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { BarChart3, Users, TrendingUp, Clock, Award, Target, MessageCircle, X } from 'lucide-react'
 import { realStudents } from '../data/transformStudents'
+import { getClerkRole, getDisplayName } from '../auth/clerk'
 
 // FAQ Responses
 const FAQ_RESPONSES: Record<string, string> = {
@@ -322,35 +324,13 @@ function FAQChatbot() {
 }
 
 export default function HomePage() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [userRole, setUserRole] = useState<'teacher' | 'student'>('student')
-  const [user, setUser] = useState<any>(null)
-
-  useEffect(() => {
-    const checkAuth = () => {
-      const auth = localStorage.getItem('isAuthenticated')
-      const userData = localStorage.getItem('user')
-      if (auth === 'true' && userData) {
-        setIsAuthenticated(true)
-        const parsed = JSON.parse(userData)
-        setUser(parsed)
-        setUserRole(parsed.type || 'student')
-      }
-    }
-
-    checkAuth()
-
-    // Listen for role changes
-    const handleRoleChange = (e: any) => {
-      setUserRole(e.detail)
-    }
-
-    window.addEventListener('roleChanged', handleRoleChange)
-    return () => window.removeEventListener('roleChanged', handleRoleChange)
-  }, [])
+  const { isSignedIn } = useAuth()
+  const { user } = useUser()
+  const userRole = getClerkRole(user)
+  const displayName = getDisplayName(user)
 
   // If not authenticated, show landing page
-  if (!isAuthenticated) {
+  if (!isSignedIn) {
     return (
       <div>
         <HeroSection />
@@ -417,7 +397,7 @@ export default function HomePage() {
             className="mb-8"
           >
             <h1 className="text-4xl font-bold mb-2">Teacher Dashboard</h1>
-            <p className="text-muted-foreground">Welcome back, {user?.name}! Here's an overview of your cohort.</p>
+            <p className="text-muted-foreground">Welcome back, {displayName}! Here's an overview of your cohort.</p>
           </motion.div>
 
           {/* Real student count stat */}
@@ -513,7 +493,7 @@ export default function HomePage() {
           className="mb-8"
         >
           <h1 className="text-4xl font-bold mb-2">My Dashboard</h1>
-          <p className="text-muted-foreground">Welcome back, {user?.name}! Track your progress and performance.</p>
+          <p className="text-muted-foreground">Welcome back, {displayName}! Track your progress and performance.</p>
         </motion.div>
 
         {/* Student Stats */}

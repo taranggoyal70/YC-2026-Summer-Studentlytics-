@@ -75,7 +75,11 @@ function App() {
         } />
         <Route path="/explore" element={<OpportunitiesPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/profile" element={
+          <ProtectedRoute allowedRoles={['student', 'teacher', 'admin']}>
+            <ProfilePage />
+          </ProtectedRoute>
+        } />
         <Route path="/sessions/:sessionId/attendance" element={
           <ProtectedRoute allowedRoles={['teacher', 'admin']}>
             <AttendanceTrackingPage />
