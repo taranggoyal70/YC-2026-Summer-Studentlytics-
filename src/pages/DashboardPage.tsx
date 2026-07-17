@@ -15,23 +15,23 @@ export default function DashboardPage() {
   // Get dynamic semester stats
   const stats = useMemo(() => getStatsBySemester(selectedSemester.id), [selectedSemester.id])
 
-  // Generate live sessions from real student data
+  // Generate active rooms from participant data
   const liveSessions = useMemo(() => {
     const majors = [...new Set(realStudents.map(s => s.major))].slice(0, 3)
     return majors.map((major) => {
       const studentsInMajor = realStudents.filter(s => s.major === major)
       const avgEngagement = Math.round(studentsInMajor.reduce((sum, s) => sum + s.engagementScore, 0) / studentsInMajor.length)
       return {
-        class: major,
-        subject: major.split(' ')[0],
-        teacher: 'Studentlytics Staff',
-        students: studentsInMajor.length,
+        room: `${major} Session`,
+        source: major.includes('Computer') ? 'Google Meet recording' : 'Classroom recording',
+        organizer: 'Studentlytics Staff',
+        participants: studentsInMajor.length,
         engagement: avgEngagement,
       }
     })
   }, [])
 
-  // Generate attendance data from real students
+  // Generate attendance data from participant records
   const attendanceData = useMemo(() => {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
     return days.map(day => ({
@@ -40,10 +40,10 @@ export default function DashboardPage() {
     }))
   }, [])
 
-  // Generate recent activities from real students
+  // Generate recent product events from participant records
   const recentActivities = useMemo(() => {
     return realStudents.slice(0, 5).map((student, index) => ({
-      event: index % 2 === 0 ? 'Student joined' : 'Session attended',
+      event: index % 2 === 0 ? 'Participant detected' : 'Engagement signal logged',
       detail: `${student.name} - ${student.major}`,
       time: `${(index + 1) * 5} mins ago`
     }))
@@ -51,7 +51,7 @@ export default function DashboardPage() {
 
   const topStats = useMemo(() => [
     { title: "Today's Sessions", value: stats.activeSessions.toString(), icon: Calendar, color: 'text-blue-600', bgColor: 'bg-blue-100' },
-    { title: 'Active Students', value: stats.totalStudents.toString(), icon: Users, color: 'text-green-600', bgColor: 'bg-green-100' },
+    { title: 'Tracked People', value: stats.totalStudents.toString(), icon: Users, color: 'text-green-600', bgColor: 'bg-green-100' },
     { title: 'Average Attendance', value: `${stats.avgAttendance}%`, icon: BarChart3, color: 'text-purple-600', bgColor: 'bg-purple-100' },
     { title: 'Engagement Score', value: `${(stats.avgEngagement / 10).toFixed(1)}/10`, icon: Activity, color: 'text-orange-600', bgColor: 'bg-orange-100' },
   ], [stats])
@@ -63,8 +63,8 @@ export default function DashboardPage() {
         <div className="mb-8">
           <div className="flex justify-between items-start mb-4">
             <div>
-              <h1 className="text-3xl font-bold mb-2">Sessions Dashboard</h1>
-              <p className="text-muted-foreground">Monitor and manage all your classroom sessions</p>
+              <h1 className="text-3xl font-bold mb-2">Command Center</h1>
+              <p className="text-muted-foreground">Monitor attendance, engagement, and early departures across rooms and calls</p>
             </div>
             <SemesterSelector />
           </div>
@@ -105,14 +105,14 @@ export default function DashboardPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
-                  Live Sessions
+                  Active Rooms & Calls
                 </CardTitle>
-                <CardDescription>Currently active classroom sessions</CardDescription>
+                <CardDescription>Recordings and live sessions being tracked by Studentlytics</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {liveSessions.map((session, index) => (
                   <motion.div
-                    key={session.class}
+                    key={session.room}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.5, delay: index * 0.1 }}
@@ -120,16 +120,16 @@ export default function DashboardPage() {
                   >
                     <div className="flex items-center justify-between mb-3">
                       <div>
-                        <h3 className="font-semibold">{session.class}</h3>
-                        <p className="text-sm text-muted-foreground">{session.subject}</p>
+                        <h3 className="font-semibold">{session.room}</h3>
+                        <p className="text-sm text-muted-foreground">{session.source}</p>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Users className="h-4 w-4" />
-                        <span>{session.students}</span>
+                        <span>{session.participants}</span>
                       </div>
                     </div>
                     <div className="flex items-center justify-between">
-                      <p className="text-sm text-muted-foreground">{session.teacher}</p>
+                      <p className="text-sm text-muted-foreground">{session.organizer}</p>
                       <div className="flex items-center gap-2">
                         <div className="flex-1 bg-secondary rounded-full h-2 w-24">
                           <div
@@ -141,8 +141,8 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     <div className="flex gap-2 mt-3">
-                      <Button size="sm" className="flex-1">Join Session</Button>
-                      <Button size="sm" variant="outline">View Details</Button>
+                      <Button size="sm" className="flex-1">Open Session</Button>
+                      <Button size="sm" variant="outline">View Timeline</Button>
                     </div>
                   </motion.div>
                 ))}
@@ -155,7 +155,7 @@ export default function DashboardPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle>Attendance Overview</CardTitle>
-                    <CardDescription>Last 7 days attendance trends</CardDescription>
+                    <CardDescription>Presence trend from the latest processed sessions</CardDescription>
                   </div>
                   <div className="flex gap-2">
                     <Button size="sm" variant="outline">Daily</Button>
@@ -232,7 +232,7 @@ export default function DashboardPage() {
                 </Button>
                 <Button className="w-full justify-start" variant="outline">
                   <Users className="mr-2 h-4 w-4" />
-                  Manage Students
+                  Manage People
                 </Button>
               </CardContent>
             </Card>

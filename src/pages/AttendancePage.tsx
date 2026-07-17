@@ -30,7 +30,7 @@ export default function AttendancePage() {
       : 0
     
     return [
-      { label: 'Total Students', value: totalStudents.toString(), icon: Users, color: 'text-blue-600', bgColor: 'bg-blue-100' },
+      { label: 'Total People', value: totalStudents.toString(), icon: Users, color: 'text-blue-600', bgColor: 'bg-blue-100' },
       { label: 'Present Today', value: presentCount.toString(), icon: CheckCircle, color: 'text-green-600', bgColor: 'bg-green-100' },
       { label: 'Absent Today', value: absentCount.toString(), icon: XCircle, color: 'text-red-600', bgColor: 'bg-red-100' },
       { label: 'Attendance Rate', value: `${attendanceRate}%`, icon: Calendar, color: 'text-purple-600', bgColor: 'bg-purple-100' }
@@ -59,8 +59,8 @@ export default function AttendancePage() {
         <div className="mb-8">
           <div className="flex justify-between items-start mb-4">
             <div>
-              <h1 className="text-3xl font-bold mb-2">Attendance Tracking</h1>
-              <p className="text-muted-foreground">Monitor and manage student attendance across all sessions</p>
+              <h1 className="text-3xl font-bold mb-2">Attendance Timeline</h1>
+              <p className="text-muted-foreground">Track check-ins, check-outs, duration, and absences across sessions</p>
             </div>
             <SemesterSelector />
           </div>
@@ -99,7 +99,7 @@ export default function AttendancePage() {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
                 <CardTitle>Attendance Records</CardTitle>
-                <CardDescription>View and manage student attendance for today's sessions</CardDescription>
+                <CardDescription>Review participant presence for the latest processed sessions</CardDescription>
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm">
@@ -114,7 +114,7 @@ export default function AttendancePage() {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search by name or student ID..."
+                  placeholder="Search by name or participant ID..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -150,8 +150,8 @@ export default function AttendancePage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-left p-4 font-medium">Student</th>
-                    <th className="text-left p-4 font-medium">Student ID</th>
+                    <th className="text-left p-4 font-medium">Participant</th>
+                    <th className="text-left p-4 font-medium">Participant ID</th>
                     <th className="text-left p-4 font-medium">Session</th>
                     <th className="text-left p-4 font-medium">Check In</th>
                     <th className="text-left p-4 font-medium">Check Out</th>

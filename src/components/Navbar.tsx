@@ -8,19 +8,18 @@ import { getClerkRole, getDisplayName } from '../auth/clerk'
 
 const studentNavItems = [
   { name: 'Home', href: '/' },
-  { name: 'Courses', href: '/courses' },
   { name: 'Sessions', href: '/sessions' },
+  { name: 'Profile', href: '/profile' },
 ]
 
 const staffNavItems = [
   { name: 'Home', href: '/' },
-  { name: 'Dashboard', href: '/dashboard' },
-  { name: 'Attendance', href: '/attendance' },
-  { name: 'Leaderboard', href: '/leaderboard' },
-  { name: 'Analytics', href: '/analytics' },
-  { name: 'Students', href: '/students' },
-  { name: 'Courses', href: '/courses' },
+  { name: 'Command Center', href: '/dashboard' },
   { name: 'Sessions', href: '/sessions' },
+  { name: 'Attendance', href: '/attendance' },
+  { name: 'Engagement', href: '/analytics' },
+  { name: 'People', href: '/students' },
+  { name: 'Integrations', href: '/integrations' },
 ]
 
 export default function Navbar() {
@@ -102,7 +101,7 @@ export default function Navbar() {
                   ) : (
                     <>
                       <User className="h-4 w-4" />
-                      Student
+                      Participant
                     </>
                   )}
                 </div>
@@ -150,7 +149,7 @@ export default function Navbar() {
                             <UserCircle className="h-4 w-4 text-muted-foreground" />
                             <div>
                               <p className="text-sm font-medium">My Profile</p>
-                              <p className="text-xs text-muted-foreground">View and edit profile</p>
+                              <p className="text-xs text-muted-foreground">Privacy and account data</p>
                             </div>
                           </button>
                           <button

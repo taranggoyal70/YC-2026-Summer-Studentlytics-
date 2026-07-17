@@ -1,10 +1,10 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import MainLayout from './layouts/MainLayout'
 import HomePage from './pages/HomePage'
 import AboutPage from './pages/AboutPage'
 import ServicesPage from './pages/ServicesPage'
 import StudentsPage from './pages/StudentsPage'
-import CoursesPage from './pages/CoursesPage'
+import IntegrationsPage from './pages/CoursesPage'
 import SessionsPage from './pages/SessionsPage'
 import LoginPage from './pages/LoginPage'
 import StudentLoginPage from './pages/StudentLoginPage'
@@ -46,7 +46,8 @@ function App() {
             <StudentsPage />
           </ProtectedRoute>
         } />
-        <Route path="/courses" element={<CoursesPage />} />
+        <Route path="/integrations" element={<IntegrationsPage />} />
+        <Route path="/courses" element={<Navigate to="/integrations" replace />} />
         <Route path="/sessions" element={<SessionsPage />} />
         <Route path="/attendance" element={
           <ProtectedRoute allowedRoles={['teacher', 'admin']}>

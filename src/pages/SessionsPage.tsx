@@ -148,13 +148,13 @@ export default function SessionsPage() {
       >
         <h1 className="text-4xl font-bold mb-4">Sessions</h1>
         <p className="text-xl text-muted-foreground mb-12">
-          {userRole === 'student' ? 'Upcoming learning sessions and workshops' : 'Upload recordings and track attendance, engagement, and early departures'}
+          {userRole === 'student' ? 'Upcoming sessions and your attendance record' : 'Upload recordings and track attendance, engagement, and early departures'}
         </p>
 
-        {/* STUDENT VIEW - Live Sessions Table */}
+        {/* PARTICIPANT VIEW - Session table */}
         {userRole === 'student' && (
           <div className="mb-12">
-            <h2 className="text-2xl font-bold mb-6">Live Sessions</h2>
+            <h2 className="text-2xl font-bold mb-6">Your Sessions</h2>
             <div className="space-y-6">
               {sessions.map((session, index) => (
                 <motion.div
@@ -270,7 +270,7 @@ export default function SessionsPage() {
           </div>
         )}
 
-        {/* STAFF VIEW - Manage RSVPs Table */}
+        {/* STAFF VIEW - Session operations */}
         {userRole === 'teacher' && (
           <>
             {/* Quick Actions - Above Recent Activities */}
@@ -305,9 +305,9 @@ export default function SessionsPage() {
               </div>
             </div>
 
-            {/* Manage RSVPs Table */}
+            {/* Session operations table */}
             <div className="mb-12">
-              <h2 className="text-2xl font-bold mb-6">Manage Sessions</h2>
+              <h2 className="text-2xl font-bold mb-6">Session Operations</h2>
               <div className="space-y-6">
                 {sessions.map((session, index) => (
                   <motion.div
@@ -328,7 +328,7 @@ export default function SessionsPage() {
                               {session.type}
                             </span>
                             <span className="text-sm text-muted-foreground">
-                              {session.rsvps}/{session.enrolled} RSVPs
+                              {session.rsvps}/{session.enrolled} expected
                             </span>
                           </div>
                         </div>
@@ -355,7 +355,7 @@ export default function SessionsPage() {
                             className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
                           >
                             <ClipboardList className="h-4 w-4" />
-                            Manage RSVPs
+                            Open Attendance Timeline
                           </Button>
                           <Button
                             size="sm"
@@ -476,7 +476,7 @@ export default function SessionsPage() {
                       ) : (
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <AlertCircle className="h-4 w-4" />
-                          <span>No enrolled students were detected in this recording. Enroll student photos first.</span>
+                          <span>No enrolled participants were detected in this recording. Enroll participant photos first.</span>
                         </div>
                       )}
                     </div>
@@ -568,7 +568,7 @@ export default function SessionsPage() {
                 ) : (
                   <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-lg text-sm text-amber-700">
                     <AlertCircle className="h-4 w-4 shrink-0" />
-                    No enrolled participants detected. Upload participant photos in the Students page first.
+                    No enrolled participants detected. Upload participant photos in the People page first.
                   </div>
                 )}
 

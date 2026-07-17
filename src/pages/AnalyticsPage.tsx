@@ -15,37 +15,37 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 
-// Generate course students from real data
-const courseStudents = {
-  'Introduction to Data Science': {
+// Generate session participant samples from real data
+const sessionParticipants = {
+  'Biology 201 lecture recording': {
     enrolled: realStudents.slice(0, 9).map(s => ({
       id: s.id,
       name: s.name,
       status: s.attendanceRate > 75 ? 'completed' : 'in-progress'
     })),
   },
-  'Web Development Fundamentals': {
+  'Company onboarding webinar': {
     enrolled: realStudents.slice(9, 19).map(s => ({
       id: s.id,
       name: s.name,
       status: s.attendanceRate > 75 ? 'completed' : 'in-progress'
     })),
   },
-  'Machine Learning Basics': {
+  'Admissions open house': {
     enrolled: realStudents.slice(19, 27).map(s => ({
       id: s.id,
       name: s.name,
       status: s.attendanceRate > 75 ? 'completed' : 'in-progress'
     })),
   },
-  'Advanced Python Programming': {
+  'Executive training session': {
     enrolled: realStudents.slice(27, 35).map(s => ({
       id: s.id,
       name: s.name,
       status: s.attendanceRate > 75 ? 'completed' : 'in-progress'
     })),
   },
-  'Database Design & SQL': {
+  'Conference breakout room': {
     enrolled: realStudents.slice(35, 44).map(s => ({
       id: s.id,
       name: s.name,
@@ -58,7 +58,7 @@ export default function AnalyticsPage() {
   const { selectedSemester } = useSemester()
   const [modalOpen, setModalOpen] = useState(false)
   const [modalData, setModalData] = useState<{
-    courseName: string
+    sessionName: string
     type: 'enrolled' | 'completed'
     students: Array<{ id: string; name: string; status: string }>
   } | null>(null)
@@ -103,7 +103,7 @@ export default function AnalyticsPage() {
           <div className="flex justify-between items-start mb-4">
             <div>
               <h1 className="text-3xl font-bold mb-2">Reports</h1>
-              <p className="text-muted-foreground">Comprehensive insights into student engagement and performance</p>
+              <p className="text-muted-foreground">Attendance, engagement, and drop-off evidence across recorded sessions</p>
             </div>
             <div className="flex gap-3 items-center">
               <SemesterSelector />
@@ -159,70 +159,70 @@ export default function AnalyticsPage() {
             </CardContent>
           </Card>
 
-          {/* Course Completion */}
+          {/* Session Outcomes */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <BarChart3 className="h-5 w-5" />
-                Course Completion
+                Session Outcomes
               </CardTitle>
-              <CardDescription>Enrollment and completion rates by course</CardDescription>
+              <CardDescription>Expected attendance, confirmed presence, and completion by session</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b">
-                      <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700">Course</th>
-                      <th className="text-center py-3 px-2 text-sm font-semibold text-gray-700">Enrolled</th>
-                      <th className="text-center py-3 px-2 text-sm font-semibold text-gray-700">Completed</th>
-                      <th className="text-center py-3 px-2 text-sm font-semibold text-gray-700">Completion Rate</th>
+                      <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700">Session</th>
+                      <th className="text-center py-3 px-2 text-sm font-semibold text-gray-700">Expected</th>
+                      <th className="text-center py-3 px-2 text-sm font-semibold text-gray-700">Present</th>
+                      <th className="text-center py-3 px-2 text-sm font-semibold text-gray-700">Completion</th>
                     </tr>
                   </thead>
                   <tbody>
                     {[
-                      { name: 'Introduction to Data Science', enrolled: 45, completed: 38 },
-                      { name: 'Web Development Fundamentals', enrolled: 52, completed: 47 },
-                      { name: 'Machine Learning Basics', enrolled: 38, completed: 31 },
-                      { name: 'Advanced Python Programming', enrolled: 41, completed: 35 },
-                      { name: 'Database Design & SQL', enrolled: 48, completed: 42 },
-                    ].map((course, index) => {
-                      const completionRate = Math.round((course.completed / course.enrolled) * 100)
-                      const students = courseStudents[course.name as keyof typeof courseStudents]?.enrolled || []
-                      const enrolledStudents = students
-                      const completedStudents = students.filter(s => s.status === 'completed')
+                      { name: 'Biology 201 lecture recording', enrolled: 45, completed: 38 },
+                      { name: 'Company onboarding webinar', enrolled: 52, completed: 47 },
+                      { name: 'Admissions open house', enrolled: 38, completed: 31 },
+                      { name: 'Executive training session', enrolled: 41, completed: 35 },
+                      { name: 'Conference breakout room', enrolled: 48, completed: 42 },
+                    ].map((session, index) => {
+                      const completionRate = Math.round((session.completed / session.enrolled) * 100)
+                      const participants = sessionParticipants[session.name as keyof typeof sessionParticipants]?.enrolled || []
+                      const expectedParticipants = participants
+                      const presentParticipants = participants.filter(s => s.status === 'completed')
                       
                       return (
                         <tr key={index} className="border-b hover:bg-gray-50">
-                          <td className="py-3 px-2 text-sm text-gray-900">{course.name}</td>
+                          <td className="py-3 px-2 text-sm text-gray-900">{session.name}</td>
                           <td className="text-center py-3 px-2">
                             <button 
                               onClick={() => {
                                 setModalData({
-                                  courseName: course.name,
+                                  sessionName: session.name,
                                   type: 'enrolled',
-                                  students: enrolledStudents
+                                  students: expectedParticipants
                                 })
                                 setModalOpen(true)
                               }}
                               className="text-sm font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
                             >
-                              {course.enrolled}
+                              {session.enrolled}
                             </button>
                           </td>
                           <td className="text-center py-3 px-2">
                             <button 
                               onClick={() => {
                                 setModalData({
-                                  courseName: course.name,
+                                  sessionName: session.name,
                                   type: 'completed',
-                                  students: completedStudents
+                                  students: presentParticipants
                                 })
                                 setModalOpen(true)
                               }}
                               className="text-sm font-semibold text-green-600 hover:text-green-800 hover:underline cursor-pointer"
                             >
-                              {course.completed}
+                              {session.completed}
                             </button>
                           </td>
                           <td className="text-center py-3 px-2">
@@ -253,7 +253,7 @@ export default function AnalyticsPage() {
               <PieChart className="h-5 w-5" />
               Attendance Distribution
             </CardTitle>
-            <CardDescription>Student attendance rate breakdown</CardDescription>
+            <CardDescription>Participant attendance rate breakdown</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -282,23 +282,23 @@ export default function AnalyticsPage() {
         <Card className="mt-6">
           <CardHeader>
             <CardTitle>Key Insights</CardTitle>
-            <CardDescription>Calculated from current student data ({realStudents.length} students)</CardDescription>
+            <CardDescription>Calculated from current participant data ({realStudents.length} people)</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <Users className="h-5 w-5 text-blue-600 mt-0.5" />
                 <div>
-                  <div className="font-semibold text-blue-900">Cohort Size</div>
-                  <p className="text-sm text-blue-700">{realStudents.length} students enrolled in the current cohort. {insightCounts.highEngagement > 0 ? `${insightCounts.highEngagement} student${insightCounts.highEngagement !== 1 ? 's' : ''} with attendance ≥ 90%.` : 'Sessions have not started yet — attendance data will populate once classes begin.'}</p>
+                  <div className="font-semibold text-blue-900">Tracked Audience</div>
+                  <p className="text-sm text-blue-700">{realStudents.length} participants are enrolled in the current workspace. {insightCounts.highEngagement > 0 ? `${insightCounts.highEngagement} participant${insightCounts.highEngagement !== 1 ? 's' : ''} with attendance >= 90%.` : 'Sessions have not started yet - attendance data will populate once recordings are processed.'}</p>
                 </div>
               </div>
               {insightCounts.atRisk > 0 && (
                 <div className="flex items-start gap-3 p-4 bg-orange-50 border border-orange-200 rounded-lg">
                   <TrendingUp className="h-5 w-5 text-orange-600 mt-0.5" />
                   <div>
-                    <div className="font-semibold text-orange-900">At-Risk Students</div>
-                    <p className="text-sm text-orange-700">{insightCounts.atRisk} student{insightCounts.atRisk !== 1 ? 's' : ''} with attendance below 50% — follow-up recommended.</p>
+                    <div className="font-semibold text-orange-900">Follow-Up Needed</div>
+                    <p className="text-sm text-orange-700">{insightCounts.atRisk} participant{insightCounts.atRisk !== 1 ? 's' : ''} with attendance below 50% - follow-up recommended.</p>
                   </div>
                 </div>
               )}
@@ -307,7 +307,7 @@ export default function AnalyticsPage() {
                   <Calendar className="h-5 w-5 text-yellow-600 mt-0.5" />
                   <div>
                     <div className="font-semibold text-yellow-900">Not Started</div>
-                    <p className="text-sm text-yellow-700">{insightCounts.notStarted} student{insightCounts.notStarted !== 1 ? 's' : ''} have not attended any sessions yet.</p>
+                    <p className="text-sm text-yellow-700">{insightCounts.notStarted} participant{insightCounts.notStarted !== 1 ? 's' : ''} have not attended any sessions yet.</p>
                   </div>
                 </div>
               )}
@@ -316,7 +316,7 @@ export default function AnalyticsPage() {
         </Card>
       </div>
 
-      {/* Student List Modal */}
+      {/* Participant List Modal */}
       {modalOpen && modalData && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <motion.div
@@ -332,9 +332,9 @@ export default function AnalyticsPage() {
             </button>
 
             <h2 className="text-2xl font-bold mb-2">
-              {modalData.type === 'enrolled' ? 'Enrolled Students' : 'Completed Students'}
+              {modalData.type === 'enrolled' ? 'Expected Participants' : 'Confirmed Participants'}
             </h2>
-            <p className="text-sm text-gray-600 mb-6">{modalData.courseName}</p>
+            <p className="text-sm text-gray-600 mb-6">{modalData.sessionName}</p>
 
             {modalData.students.length > 0 ? (
               <div className="space-y-2">
@@ -356,12 +356,12 @@ export default function AnalyticsPage() {
                       {student.status === 'completed' ? (
                         <span className="flex items-center gap-1 px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
                           <CheckCircle className="h-4 w-4" />
-                          Completed
+                          Present
                         </span>
                       ) : (
                         <span className="flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
                           <Activity className="h-4 w-4" />
-                          In Progress
+                          Expected
                         </span>
                       )}
                     </div>
@@ -371,7 +371,7 @@ export default function AnalyticsPage() {
             ) : (
               <div className="flex flex-col items-center justify-center py-12 text-gray-400">
                 <XCircle className="h-12 w-12 mb-3" />
-                <p>No students found</p>
+                <p>No participants found</p>
               </div>
             )}
 

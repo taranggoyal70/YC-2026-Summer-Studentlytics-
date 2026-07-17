@@ -83,12 +83,12 @@ export default function StudentsPage() {
   }, [])
 
   const handleAddStudent = async () => {
-    const studentName = window.prompt('Student full name')
+    const studentName = window.prompt('Participant full name')
     if (!studentName) return
-    const studentId = window.prompt('Student ID')
+    const studentId = window.prompt('Participant ID')
     if (!studentId) return
-    const studentEmail = window.prompt('Student email') ?? ''
-    const className = window.prompt('Class name') ?? ''
+    const studentEmail = window.prompt('Participant email') ?? ''
+    const className = window.prompt('Session or group name') ?? ''
 
     try {
       await addStudent({
@@ -149,21 +149,21 @@ export default function StudentsPage() {
           {/* Header */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
             <div>
-              <h1 className="text-3xl font-bold mb-2">Students Management</h1>
+              <h1 className="text-3xl font-bold mb-2">People & Face Roster</h1>
               <p className="text-muted-foreground">
-                Manage and track student information and performance
+                Manage participants, consent records, face enrollment, and engagement history
               </p>
             </div>
             <Button className="gap-2" onClick={handleAddStudent}>
               <Plus className="h-4 w-4" />
-              Add Student
+              Add Participant
             </Button>
           </div>
 
           {/* Loading State */}
           {loading && (
             <Card className="p-6 mb-6">
-              <p className="text-center text-muted-foreground">Loading students from database...</p>
+              <p className="text-center text-muted-foreground">Loading participants from database...</p>
             </Card>
           )}
 
@@ -189,7 +189,7 @@ export default function StudentsPage() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <input
                   type="text"
-                  placeholder="Search by name or ID..."
+                  placeholder="Search by name or participant ID..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
@@ -200,7 +200,7 @@ export default function StudentsPage() {
                 onChange={(e) => setFilterClass(e.target.value)}
                 className="px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                <option value="all">All Classes</option>
+                <option value="all">All Groups</option>
                 {classOptions.map(className => (
                   <option key={className} value={className}>{className}</option>
                 ))}
@@ -214,9 +214,9 @@ export default function StudentsPage() {
               <table className="w-full">
                 <thead className="bg-muted/50">
                   <tr>
-                    <th className="text-left p-4 font-semibold">Student ID</th>
+                    <th className="text-left p-4 font-semibold">Participant ID</th>
                     <th className="text-left p-4 font-semibold">Name</th>
-                    <th className="text-left p-4 font-semibold">Class</th>
+                    <th className="text-left p-4 font-semibold">Group</th>
                     <th className="text-left p-4 font-semibold">Attendance</th>
                     <th className="text-left p-4 font-semibold">Engagement</th>
                     <th className="text-left p-4 font-semibold">Last Active</th>
@@ -307,7 +307,7 @@ export default function StudentsPage() {
                   </div>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Class:</span>
+                      <span className="text-muted-foreground">Group:</span>
                       <span className="font-medium">{student.class_name || student.class}</span>
                     </div>
                     <div className="flex justify-between">
@@ -337,7 +337,7 @@ export default function StudentsPage() {
           {/* Pagination */}
           <div className="flex items-center justify-between mt-6">
             <p className="text-sm text-muted-foreground">
-              Showing {filteredStudents.length} of {allStudents.length} students {apiStudents.length > 0 && '(from local roster)'}
+              Showing {filteredStudents.length} of {allStudents.length} participants {apiStudents.length > 0 && '(from local roster)'}
             </p>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" disabled>
@@ -357,7 +357,7 @@ export default function StudentsPage() {
                 <Activity className="h-5 w-5" />
                 <h2 className="text-lg font-semibold">Weekly Activity</h2>
               </div>
-              <p className="text-sm text-muted-foreground mt-1">Sessions and student participation by day</p>
+              <p className="text-sm text-muted-foreground mt-1">Sessions and participant activity by day</p>
             </div>
             <div className="p-6">
               <ResponsiveContainer width="100%" height={300}>
@@ -368,7 +368,7 @@ export default function StudentsPage() {
                   <Tooltip />
                   <Legend />
                   <Bar dataKey="sessions" fill="#8b5cf6" name="Sessions" />
-                  <Bar dataKey="students" fill="#10b981" name="Students" />
+                  <Bar dataKey="students" fill="#10b981" name="Participants" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
