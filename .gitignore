@@ -54,3 +54,7 @@ backend/data/videos/
 backend/__pycache__/
 **/__pycache__/
 **/*.pyc
+.vercel
+.env*
+.agents/
+skills-lock.json

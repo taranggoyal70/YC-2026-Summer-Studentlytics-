@@ -4,3 +4,5 @@ RESOURCES.md
 assets/
 lessons/
 reference/
+.agents/
+skills-lock.json
