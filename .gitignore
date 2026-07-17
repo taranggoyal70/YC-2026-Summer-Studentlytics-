@@ -61,3 +61,8 @@ skills-lock.json
 
 # Never commit runtime or biometric data
 backend/data/
+
+.vercel
+.venv-tools/
+.claude/
+.env.local
