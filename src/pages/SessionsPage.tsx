@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useUser } from '@clerk/react'
 import { motion } from 'framer-motion'
 import { Calendar, Clock, Video, Upload, X, CheckCircle, Loader2, Users, Brain, AlertCircle, ClipboardList, CalendarPlus, ChevronDown } from 'lucide-react'
@@ -41,6 +41,17 @@ export default function SessionsPage() {
       .then((data) => setApiSessions(data))
       .catch((error) => setSessionsError(error instanceof Error ? error.message : 'Failed to load sessions'))
   }, [])
+
+  // Deep link from Integrations: /sessions?upload=1 opens the upload flow.
+  const [searchParams] = useSearchParams()
+  useEffect(() => {
+    if (searchParams.get('upload') === '1' && userRole !== 'student') {
+      const source = searchParams.get('source')
+      setSelectedSession(source === 'zoom' ? 'Zoom Session' : source === 'meet' ? 'Meet Session' : '')
+      setUploadModalOpen(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, userRole])
 
   const sessions = useMemo(() => {
     return apiSessions.map((s) => {
@@ -303,6 +314,12 @@ export default function SessionsPage() {
                     <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => {
                       if (action.action === 'analytics') navigate('/analytics')
                       else if (action.action === 'students') navigate('/students')
+                      else if (action.action === 'upload') {
+                        setSelectedSession('')
+                        setResult(null)
+                        setUploadedFile(null)
+                        setUploadModalOpen(true)
+                      }
                     }}>
                       <CardContent className="pt-6">
                         <div className="flex items-center gap-4">
@@ -521,7 +538,14 @@ export default function SessionsPage() {
             </button>
 
             <h2 className="text-2xl font-bold mb-1">Upload Session Recording</h2>
-            <p className="text-sm text-muted-foreground mb-6">{selectedSession}</p>
+            <input
+              type="text"
+              value={selectedSession ?? ''}
+              onChange={(e) => setSelectedSession(e.target.value)}
+              placeholder="Session title (e.g. Week 3 Lecture, Onboarding Webinar)"
+              disabled={uploading || processing || Boolean(result)}
+              className="mb-6 w-full rounded-md border bg-background px-3 py-2 text-sm"
+            />
 
             {result ? (
               <div className="space-y-4">
@@ -655,7 +679,7 @@ export default function SessionsPage() {
                 <div className="mt-6 flex gap-3">
                   <Button
                     onClick={handleUpload}
-                    disabled={!uploadedFile || uploading || processing}
+                    disabled={!uploadedFile || !selectedSession?.trim() || uploading || processing}
                     className="flex-1"
                   >
                     {uploading ? (
