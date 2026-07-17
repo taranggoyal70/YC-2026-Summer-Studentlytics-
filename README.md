@@ -96,61 +96,64 @@ See [docs/PLATFORM_BLUEPRINT.md](./docs/PLATFORM_BLUEPRINT.md) for the broader p
 
 ---
 
-## Getting Started
+## Architecture
 
-### Prerequisites
+Everything runs in the cloud — nothing is hardcoded or local (see ADRs 0002–0005):
 
-- Python 3.10+
-- Node.js 18+
-- ffmpeg (`brew install ffmpeg` on Mac, `apt install ffmpeg` on Linux)
-- cmake (`brew install cmake`) — required for dlib
+- **Frontend + API**: one Vercel project. Vite SPA plus FastAPI on Vercel Python Functions under `/api/*` (`api/index.py`).
+- **Database**: Neon Postgres (Vercel Marketplace) — organizations, spaces, sessions, participants, rosters, recordings, analysis jobs, presence windows, attendance decisions.
+- **Media**: Vercel Blob. Browsers upload recordings directly with client-upload tokens issued by `api/upload.js`.
+- **Analysis worker**: `.github/workflows/analyze.yml` runs `worker/analyze.py` on GitHub Actions per analysis job — face-template enrollment, face matching, Whisper transcription, engagement scoring — and writes results to Postgres.
+- **Auth**: Clerk. The backend verifies JWTs against Clerk's JWKS; the `studentlytics` JWT template embeds the user's role.
 
-### Backend
+Production: https://studentlytics-app.vercel.app
 
-```bash
-cd backend
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
-```
-
-First run downloads the faster-whisper tiny model (~75MB). Subsequent runs use the cached model.
-
-### Frontend
+## Getting Started (local development)
 
 ```bash
 npm install
+vercel env pull .env.local   # DATABASE_URL, Clerk keys, Blob token
 npm run dev
 ```
 
-Open http://localhost:3006 (or next available port).
+The `/api` routes run on Vercel; for local iteration use `vercel dev`. Apply schema changes with `db/schema.sql` (idempotent).
 
-### Enroll Students
+### Enroll Participants
 
-1. Go to **Students** page
-2. Click any student card → upload a clear headshot photo
-3. System builds face encoding (takes ~2 seconds per photo)
+1. Go to **People** → add a participant → upload a clear headshot photo
+2. The photo is stored in Blob; the face template is computed by the worker with the next analysis run
 
 ### Process a Recording
 
-1. Go to **Sessions** page
-2. Click **Upload Recording** on any session
-3. Upload an MP4/MOV file
-4. Wait ~15 min for a 60-min video
-5. Results appear in the session card
+1. Go to **Sessions** → **Upload Recording**
+2. Upload an MP4/MOV/WebM file — it goes straight to Blob storage
+3. An analysis job is dispatched to the GitHub Actions worker (first run takes longer while dlib builds)
+4. Attendance decisions, presence windows, and engagement evidence appear in Attendance and Analytics
 
 ---
 
 ## API Reference
 
 ```
-POST /videos/upload          Upload video + start processing
-GET  /videos/{id}/status     Poll processing status
-GET  /videos                 List all processed videos
+GET  /api/health                        Service status
+GET  /api/me                            Current user, role, organization
 
-POST /students/photo         Enroll student face (multipart: file, student_id, student_name)
-GET  /students/enrolled      List enrolled students
+GET|POST /api/students                  Participants (legacy route name)
+PUT|DELETE /api/students/records/{id}   Update / delete participant
+POST /api/students/records/{id}/photo   Attach enrollment photo (Blob URL)
+GET  /api/students/enrolled             Participants with face templates
 
-GET  /health                 Backend status + enrolled count
+GET|POST /api/sessions                  Sessions
+GET  /api/sessions/{id}/report          Attendance decisions + presence windows
+
+POST /api/upload                        Blob client-upload token (staff only)
+POST /api/videos/register               Register recording + dispatch analysis
+GET  /api/videos                        List analysis jobs
+GET  /api/videos/{id}/status            Poll one analysis job
+
+GET  /api/analytics/overview            Org-level attendance/engagement stats
+GET  /api/analytics/leaderboard         Per-participant stats
+GET|POST /api/opportunities             Opportunities CRUD
 ```
 
 ---
