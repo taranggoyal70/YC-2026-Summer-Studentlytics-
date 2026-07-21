@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Trophy, Medal, MessageCircle, HelpCircle } from 'lucide-react'
+import { Trophy, Medal, MessageCircle, HelpCircle, Download } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { getLeaderboard, LeaderboardEntry } from '../services/insightsService'
+import { toCsv, downloadCsv } from '../utils/csv'
 
 export default function LeaderboardPage() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([])
@@ -26,6 +27,23 @@ export default function LeaderboardPage() {
         <p className="text-xl text-muted-foreground mb-10">
           Ranked by average engagement score across analyzed sessions. Scores are review signals backed by evidence, not standalone judgments.
         </p>
+
+        {ranked.length > 0 && (
+          <div className="mb-6 flex justify-end">
+            <button
+              onClick={() =>
+                downloadCsv(
+                  `leaderboard-${new Date().toISOString().slice(0, 10)}.csv`,
+                  toCsv(ranked as unknown as Record<string, unknown>[]),
+                )
+              }
+              className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition hover:bg-accent"
+            >
+              <Download className="h-4 w-4" />
+              Export CSV ({ranked.length})
+            </button>
+          </div>
+        )}
 
         {loading && <p className="text-muted-foreground">Loading leaderboard…</p>}
         {error && <p className="text-destructive">{error}</p>}
